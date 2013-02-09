@@ -16,10 +16,10 @@ class KeyValueTable {
         char value[valueSize];
     } KeyValueTableDetail;
 
-  public:
-    KeyValueTable(us8 size = 16)
+public:
+    KeyValueTable(us8 size = 10)
     {
-        kvTable = (KeyValueTableDetail*)malloc(size * sizeof(*kvTable));
+        kvTable = (KeyValueTableDetail*)malloc(size * sizeof(KeyValueTableDetail));
         tableSize = size;
     }
 
@@ -191,17 +191,19 @@ private:
     // finds empty slot or matching key
     s8 findIndex(String key, bool includeEmpty = false)
     {
-      for(s8 i = 0; i < tableSize; i++) {
-          if(compare(key, kvTable[i].key, keySize)) {
-             return i;
-          }
-          if(includeEmpty) {
-            if(kvTable[i].key[0] == 0) {
-               return i;
+        if(key.length() > 0) {
+            for(s8 i = 0; i < tableSize; i++) {
+                if(compare(key, kvTable[i].key, keySize)) {
+                    return i;
+                }
+                if(includeEmpty) {
+                    if(kvTable[i].key[0] == 0) {
+                        return i;
+                    }
+                }
             }
-          }
-      }
-      return -1;
+        }
+        return -1;
     }
 };
 

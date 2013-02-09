@@ -62,10 +62,13 @@ public:
 
     bool isJSON()
     {
-        us8 first = buffer[0];
-        us8 last = buffer[length - 2];
-        if((first == '{' && last == '}') || (first == '[' && last == ']')) {
-            return true;
+        if(length > 2) {
+            us8 first = buffer[0];
+            us8 last = buffer[length - 2];
+
+            if((first == '{' && last == '}') || (first == '[' && last == ']')) {
+                return true;
+            }
         }
         return false;
     }
@@ -144,11 +147,17 @@ public:
 
     String toString()
     {
-        String temp;
-        for(us8 i = tail; i < head; i++) {
-            temp += buffer[i];
+        if(head > tail) {
+            char array[(head - tail) + 1];
+            us8 index = 0;
+            for(us8 i = tail; i < head; i++) {
+                array[index++] = buffer[i];
+            }
+            array[index] = 0;
+
+            return String((const char*)array);
         }
-        return temp;
+        return String();
     }
 
     bool nextToken()

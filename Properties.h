@@ -26,17 +26,18 @@ public:
     typedef struct {
         PropertyType type;
         PropertyMode mode;
-        fptr_string changeHandler;
+        fptr_string action;
     } PropertiesTableDetail;
 
-    Properties(us8 size = 16)
+    Properties(us8 size = 10)
+        : KeyValueTable(size)
     {
         propertiesTable = (PropertiesTableDetail*)malloc(size * sizeof(PropertiesTableDetail));
 
         for(us8 i = 0; i < tableSize; i++) {
             propertiesTable[i].type = NullProperty;
             propertiesTable[i].mode = RW;
-            propertiesTable[i].changeHandler = 0;
+            propertiesTable[i].action = 0;
         }
 
         echoFunction = 0;
@@ -49,7 +50,7 @@ public:
             propertiesTable[index].type = BoolProperty;
             propertiesTable[index].mode = mode;
             if(func != 0) {
-                propertiesTable[index].changeHandler = func;
+                propertiesTable[index].action = func;
             }
         }
     }
@@ -61,7 +62,7 @@ public:
             propertiesTable[index].type = NumberProperty;
             propertiesTable[index].mode = mode;
             if(func != 0) {
-                propertiesTable[index].changeHandler = func;
+                propertiesTable[index].action = func;
             }
         }
     }
@@ -73,7 +74,7 @@ public:
             propertiesTable[index].type = StringProperty;
             propertiesTable[index].mode = mode;
             if(func != 0) {
-                propertiesTable[index].changeHandler = func;
+                propertiesTable[index].action = func;
             }
         }
     }
@@ -85,7 +86,7 @@ public:
             propertiesTable[index].type = JsonProperty;
             propertiesTable[index].mode = mode;
             if(func != 0) {
-                propertiesTable[index].changeHandler = func;
+                propertiesTable[index].action = func;
             }
         }
     }
@@ -105,8 +106,8 @@ public:
                 echoFunction(jsonString(index));
             }
 
-            if(propertiesTable[index].changeHandler != 0) {
-                propertiesTable[index].changeHandler(value);
+            if(propertiesTable[index].action != 0) {
+                propertiesTable[index].action(value);
             }
             return true;
         }
@@ -142,7 +143,6 @@ public:
 
         if(parser.isJSON() || ignoreJson) {
             String key = parser.toString();
-
             s8 index = findIndex(key);
             if(0 <= index && index < tableSize) {
                 if(propertiesTable[index].mode == RW) {
@@ -151,8 +151,8 @@ public:
 
                     setValue(index, value);
 
-                    if(propertiesTable[index].changeHandler != 0) {
-                        propertiesTable[index].changeHandler(value);
+                    if(propertiesTable[index].action != 0) {
+                        propertiesTable[index].action(value);
                     }
                 }
                 else {
@@ -213,7 +213,12 @@ public:
             for(us8 i = 0; i < length; i++) {
                 StringList list;
                 list << key(i);
-                list << String((propertiesTable[i].mode == RW) ? "rw" : "ro");
+
+                String mode = String((propertiesTable[i].mode == RW) ? "rw" : "r");
+                if(propertiesTable[i].action != 0) {
+                    mode += "x";
+                }
+                list << mode;
 
                 switch(propertiesTable[i].type) {
                 case NullProperty:
@@ -237,13 +242,14 @@ public:
                     list << value(i);
                 }
 
-                parser.print(list.augment("\t\"%1\": [\"%2\", \"%3\", %4]"));
+
+                parser.print(list.augment("\t\"%1\": [\"%3\", \"%2\", %4]"));
                 if(i < (length - 1)) {
                     parser.print(",");
                 }
                 parser.print("\n");
             }
-            parser.print("}\r");
+            parser.println("}");
         }
     }
 
