@@ -3,9 +3,14 @@
 
 #include <WProgram.h>
 
-#define QueueSize 6
-#define QueueType String
-#define QueueTypeInit ""
+typedef struct {
+  us8 exit;
+  char side;
+} SortPosition;
+
+#define QueueSize 20
+#define QueueType SortPosition
+#define QueueTypeInit { 255, 'C' }
 
 typedef enum {
   qeNONE = 0,
@@ -42,19 +47,26 @@ public:
     }
   }
 
+  void remove(us8 index) {
+      if(index < QueueSize) {
+          table[index] = QueueTypeInit;
+      }
+  }
+
   void clear() {
-    for( us8 i = 0; i < QueueSize; i++ ) {
-      table[i] = QueueTypeInit;
+    for(us8 i = 0; i < QueueSize; i++) {
+      remove(i);
     }
     head = 0;
     tail = 0;
   }
 
   QueueType at(us8 index) {
+    QueueType rval = QueueTypeInit;
     if(index < QueueSize) {
       return table[index];
     }
-    return 0;
+    return rval;
   }
 
   QueueError push(QueueType position) {
@@ -70,6 +82,7 @@ public:
   QueueType pop() {
     QueueType temp = QueueTypeInit;
     temp = at(tail);
+    remove(tail);
     index_rollover(tail);
     return temp;
   }
