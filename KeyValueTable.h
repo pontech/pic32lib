@@ -6,7 +6,7 @@
 #include "StringList.h"
 
 #define keySize 20
-#define valueSize 8
+#define valueSize 16
 
 class KeyValueTable {
     friend class Properties;
