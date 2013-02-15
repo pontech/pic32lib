@@ -6,10 +6,11 @@
 
 class DetectEdge {
 public:
-    DetectEdge(us8 newPin = 0, bool defaultPinState = false)
+    DetectEdge(us8 pin = 0, bool activeLow = true)
     {
-        pPin = newPin;
-        pPreviousState = defaultPinState;
+        pPin = pin;
+        pActiveLow = activeLow;
+        pPreviousState = activeLow;
         pRisingFlag = false;
         pFallingFlag = false;
 
@@ -17,16 +18,14 @@ public:
         pPreviousTime = 0;
     }
 
-    void setup(us8 newPin, bool defaultPinState = false)
-    {
-        pPin = newPin;
-        pPreviousState = defaultPinState;
-    }
-
     void scan()
     {
         bool input = digitalRead(pPin);
         bool stateChanged = false;
+
+        if(pActiveLow) {
+            input ^= 1;
+        }
 
         if(input == 0 && pPreviousState != 0) {
             pRisingFlag = false;
@@ -64,12 +63,12 @@ public:
 
     bool isRisen()
     {
-        return digitalRead(pPin);
+        return pActiveLow ? !digitalRead(pPin) : digitalRead(pPin);
     }
 
     bool isFallen()
     {
-        return !digitalRead(pPin);
+        return pActiveLow ? digitalRead(pPin) : !digitalRead(pPin);
     }
 
     void setRising()
@@ -96,6 +95,7 @@ public:
 
 private:
     us8 pPin;
+    bool pActiveLow;
     bool pPreviousState;
     bool pRisingFlag;
     bool pFallingFlag;
