@@ -27,6 +27,7 @@ public:
         PropertyType type;
         PropertyMode mode;
         fptr_string action;
+        us8 changed;
     } PropertiesTableDetail;
 
     Properties(us8 size = 10)
@@ -38,9 +39,11 @@ public:
             propertiesTable[i].type = NullProperty;
             propertiesTable[i].mode = RW;
             propertiesTable[i].action = 0;
+            propertiesTable[i].changed = 0;
         }
 
         echoFunction = 0;
+        batchMode = -1;
     }
 
     s8 addBool(String key, bool value, fptr_string func = 0, PropertyMode mode = RW)
@@ -91,6 +94,33 @@ public:
         }
     }
 
+    void setBatchMode(bool mode) {
+        if(mode) {
+            batchMode = 0;
+        }
+        else {
+            for(us8 i = 1; i <= batchMode; i++) {
+                for(us8 p = 0; p < tableSize; p++) {
+                    if(propertiesTable[p].changed == i) {
+                        propertiesTable[p].changed = 0;
+                        if(echoFunction != 0) {
+                            echoFunction(jsonString(p, i, batchMode));
+                        }
+                        break;
+                    }
+                }
+            }
+            if(echoFunction != 0) {
+                echoFunction("\r");
+            }
+            batchMode = -1;
+        }
+    }
+
+    bool getBatchMode() {
+        return batchMode;
+    }
+
     bool update(String key, String value)
     {
         s8 index = findIndex(key);
@@ -102,8 +132,16 @@ public:
         if(0 <= index && index < tableSize) {
             setValue(index, value);
 
-            if(echoFunction != 0) {
-                echoFunction(jsonString(index));
+            if(batchMode != -1) {
+                if(propertiesTable[index].changed == 0) {
+                    batchMode++;
+                    propertiesTable[index].changed = batchMode;
+                }
+            }
+            else {
+                if(echoFunction != 0) {
+                    echoFunction(jsonString(index) + "\r");
+                }
             }
 
             if(propertiesTable[index].action != 0) {
@@ -114,25 +152,43 @@ public:
         return false;
     }
 
-    String jsonString(s8 index)
+    String jsonString(s8 index, us8 start = 1, us8 stop = 1)
     {
         if(0 <= index && index < tableSize) {
             StringList list;
             list << key(index);
             list << value(index);
 
+            String temp;
+            if(start == 1) {
+                temp += "{";
+            }
+
+            temp += " \"%1\": ";
+
             switch(propertiesTable[index].type) {
             case NullProperty:
-                return list.augment("{ \"%1\": null }");
+                temp += "null";
+                break;
 
             case BoolProperty:
             case NumberProperty:
             case JsonProperty:
-                return list.augment("{ \"%1\": %2 }");
+                temp += "%2";
+                break;
 
             case StringProperty:
-                return list.augment("{ \"%1\": \"%2\" }");
+                temp += "\"%2\"";
             }
+
+            if(start != stop) {
+                temp += ",";
+            }
+            else {
+                temp += " }";
+            }
+
+            return list.augment(temp);
         }
         return "";
     }
@@ -160,7 +216,7 @@ public:
                         StringList list;
                         list << key;
 
-                        echoFunction(list.augment("{ \"error\": \"%1 is read only\" }"));
+                        echoFunction(list.augment("{ \"error\": \"%1 is read only\" }\r"));
                     }
                 }
             }
@@ -256,6 +312,7 @@ public:
 private:
     PropertiesTableDetail *propertiesTable;
     fptr_string echoFunction;
+    s8 batchMode;
 };
 
 #endif // PROPERTIES_H
