@@ -44,6 +44,7 @@ public:
 
         echoFunction = 0;
         batchMode = -1;
+        executingAction = false;
     }
 
     s8 addBool(String key, bool value, fptr_string func = 0, PropertyMode mode = RW)
@@ -144,8 +145,10 @@ public:
                 }
             }
 
-            if(propertiesTable[index].action != 0) {
+            if((propertiesTable[index].action != 0) && (!executingAction)) {
+                executingAction = true;
                 propertiesTable[index].action(value);
+                executingAction = false;
             }
             return true;
         }
@@ -313,6 +316,7 @@ private:
     PropertiesTableDetail *propertiesTable;
     fptr_string echoFunction;
     s8 batchMode;
+    bool executingAction;
 };
 
 #endif // PROPERTIES_H
