@@ -13,6 +13,7 @@ public:
     StringList(const String &string)
     {
         list = string;
+        listSize = 0;
     }
 
     const void operator <<(const String &rhs)
@@ -21,6 +22,12 @@ public:
             list += charactorSeperator;
         }
         list += rhs;
+        listSize++;
+    }
+
+    us8 size()
+    {
+        return listSize;
     }
 
     String at(us8 index)
@@ -100,6 +107,7 @@ public:
 
 private:
     String list;
+    us8 listSize;
 };
 
 #endif // STRINGLIST_H
