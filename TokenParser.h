@@ -8,7 +8,13 @@
 
 class TokenParser {
 public:
-    TokenParser(Stream* stream, us8 bufferSize = 64)
+    typedef enum {
+        InvalidToken = 0,
+        ValidToken,
+        JsonToken
+    } TokenType;
+
+    TokenParser(Stream* stream, us8 bufferSize = 100)
     {
         myStream = stream;
         buffer = (us8*)malloc(bufferSize + 1);
@@ -16,6 +22,7 @@ public:
         save();
         length = 0;
         stopCharactorFound = false;
+        type = InvalidToken;
     }
 
     bool scan(us8 stopCharactor = '\r')
@@ -60,17 +67,9 @@ public:
         return length - head;
     }
 
-    bool isJSON()
+    bool isJson()
     {
-        if(length > 2) {
-            us8 first = buffer[0];
-            us8 last = buffer[length - 2];
-
-            if((first == '{' && last == '}') || (first == '[' && last == ']')) {
-                return true;
-            }
-        }
-        return false;
+        return (type == JsonToken) ? true : false;
     }
 
     void reset()
@@ -159,16 +158,39 @@ public:
         }
         return String();
     }
-
-    bool nextToken()
+	
+    bool nextToken(s8 index = -1)
     {
+        if((0 < index) && (index < length)) {
+            head = index;
+        }
+
         tail = head;
-        tail = skip(tail, true);
+        for(us8 i = tail; tail < length; i++) {
+            s8 result = match(buffer[i], " \n\t{");
+            if(result == -1) {
+                tail = i;
+                break;
+            }
+            else if(result >= 2) {
+                head = length - 1;
+                type = JsonToken;
+                return true;
+            }
+        }
 
         head = tail;
-        head = skip(head, false);
+        for(us8 i = head; head < length; i++) {
+            s8 result = match(buffer[i], " \n\t");
+            if(result != -1) {
+                head = i;
+                type = ValidToken;
+                return true;
+            }
+        }
 
-        return (tail < head) ? true : false;
+        type = InvalidToken;
+        return false;
     }
 
     bool advanceTail(us8 advance)
@@ -230,6 +252,18 @@ public:
         myStream->println(string);
     }
 
+    static s8 match(us8 charactor, const char* delimiters = 0)
+    {
+        us8 i = 0;
+        while(delimiters[i] != 0) {
+            if(charactor == delimiters[i]) {
+                return i;
+            }
+            i++;
+        }
+        return -1;
+    }
+
 private:
     inline bool characterCompare(us8 char1, us8 char2, bool caseSensitive = true)
     {
@@ -254,49 +288,6 @@ private:
         return x;
     }
 
-    us8 skip(us8 index, bool skipSeparator)
-    {
-        bool prevState = (index == 0) ? skipSeparator : isSeperator(index);
-
-        while(0 <= index && index <= length) {
-            bool currentstate = isSeperator(index);
-
-            if(skipSeparator) {
-                // falling edge
-                if(prevState && !currentstate) {
-                    break;
-                }
-            }
-            else {
-                // rising edge
-                if(!prevState && currentstate) {
-                    break;
-                }
-            }
-            prevState = currentstate;
-            index++;
-        }
-
-        if(index > length) {
-            return length;
-        }
-        return index;
-    }
-
-    inline bool isSeperator(us8 index)
-    {
-
-        us8 tempChar = buffer[index];
-        us8 array[] = {' ', '\n', ':', ',', '{', '}', '[', ']', '"'};
-
-        for(us8 i = 0; i < sizeof(array); i++) {
-            if(tempChar == array[i]) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     Stream* myStream;
     us8* buffer;
     us8 length;
@@ -305,6 +296,7 @@ private:
     us8 savedHead;
     us8 savedTail;
     bool stopCharactorFound;
+    TokenType type;
 };
 
 #endif // TOKENPARSER_H

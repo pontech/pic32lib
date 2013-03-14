@@ -4,6 +4,7 @@
 #include "Core.h"
 #include "KeyValueTable.h"
 #include "TokenParser.h"
+#include "Json.h"
 #include "StringList.h"
 
 class Properties : public KeyValueTable {
@@ -196,33 +197,30 @@ public:
         return "";
     }
 
-    void evaluate(TokenParser &parser, bool ignoreJson = 0)
+    void evaluate(TokenParser &parser)
     {
-        command(parser);
+        if(parser.isJson()) {
+            parser.advanceHead(parser.remaining());
+            String string = parser.toString();
+            Json json(&string);
 
-        if(parser.isJSON() || ignoreJson) {
-            String key = parser.toString();
-            s8 index = findIndex(key);
-            if(0 <= index && index < tableSize) {
-                if(propertiesTable[index].mode == RW) {
-                    parser.nextToken();
-                    String value = parser.toString();
+            for(us8 i = 0; i < json.size(); i++) {
+                s8 index = findIndex(json.key(i));
 
-                    setValue(index, value);
+                if(0 <= index && index < tableSize) {
+                    if(propertiesTable[index].mode == RW) {
+                        String value = json.value(i).toString();
+                        setValue(index, value);
 
-                    if(propertiesTable[index].action != 0) {
-                        propertiesTable[index].action(value);
-                    }
-                }
-                else {
-                    if(echoFunction != 0) {
-                        StringList list;
-                        list << key;
-
-                        echoFunction(list.augment("{ \"error\": \"%1 is read only\" }\r"));
+                        if(propertiesTable[index].action != 0) {
+                            propertiesTable[index].action(value);
+                        }
                     }
                 }
             }
+        }
+        else {
+            command(parser);
         }
     }
 

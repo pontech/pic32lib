@@ -3,6 +3,7 @@
 
 #include <WProgram.h>
 #include "Core.h"
+#include "TokenParser.h"
 #include "StringList.h"
 
 class Json {
@@ -44,7 +45,7 @@ public:
         }
 
         while(index <= head) {
-            s8 value = match(jsonString->charAt(index), "{}[],");
+            s8 value = TokenParser::match(jsonString->charAt(index), "{}[],");
 
             if((value == 0) || (value == 2)) {
                 if(arrayLevel == 0 && objectLevel == 0) {
@@ -159,7 +160,7 @@ public:
             if(jsonType == Object) {
                 for(us8 i = tail; i <= head; i++) {
                     if(jsonString->charAt(i) == ':') {
-                        tail = i;
+                        tail = i + 1;
                         break;
                     }
                 }
@@ -167,14 +168,14 @@ public:
 
             if((jsonType == Array) || (jsonType == Object)) {
                 for(us8 i = tail; i <= head; i++) {
-                    if(match(jsonString->charAt(i), " ,\"") == -1) {
+                    if(TokenParser::match(jsonString->charAt(i), " ,\"") == -1) {
                         tail = i;
                         break;
                     }
                 }
 
                 for(us8 i = head; tail <= head;) {
-                    if(match(jsonString->charAt(i), " ,\"") == -1) {
+                    if(TokenParser::match(jsonString->charAt(i), " ,\"") == -1) {
                         head = i;
                         break;
                     }
@@ -211,18 +212,6 @@ public:
     }
 
 private:
-    inline s8 match(us8 charactor, const char* delimiters = 0)
-    {
-        us8 i = 0;
-        while(delimiters[i] != 0) {
-            if(charactor == delimiters[i]) {
-                return i;
-            }
-            i++;
-        }
-        return -1;
-    }
-
     String *jsonString;
     s8 tailLimit;
     s8 headLimit;
