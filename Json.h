@@ -8,6 +8,8 @@
 
 class Json {
 public:
+    #define maxPositions 32
+
     typedef enum {
         NotJson = 0,
         Array,
@@ -40,7 +42,7 @@ public:
 
         index = tail;
 
-        for(us8 i = 0; i < 10; i++) {
+        for(us8 i = 0; i < maxPositions; i++) {
             positions[i] = -1;
         }
 
@@ -218,7 +220,7 @@ private:
 
     JsonType jsonType;
     us8 jsonSize;
-    s8 positions[10];
+    s8 positions[maxPositions];
 };
 
 #endif // JSON_H
