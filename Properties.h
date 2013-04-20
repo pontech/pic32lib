@@ -58,6 +58,7 @@ public:
                 propertiesTable[index].action = func;
             }
         }
+        return index;
     }
 
     s8 addNumber(String key, String value, fptr_string func = 0, PropertyMode mode = RW)
@@ -70,6 +71,7 @@ public:
                 propertiesTable[index].action = func;
             }
         }
+        return index;
     }
 
     s8 addString(String key, String value, fptr_string func = 0, PropertyMode mode = RW)
@@ -82,6 +84,7 @@ public:
                 propertiesTable[index].action = func;
             }
         }
+        return index;
     }
 
     s8 addJson(String key, String value, fptr_string func = 0, PropertyMode mode = RW)
@@ -94,6 +97,7 @@ public:
                 propertiesTable[index].action = func;
             }
         }
+        return index;
     }
 
     void setBatchMode(bool mode) {
