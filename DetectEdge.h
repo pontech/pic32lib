@@ -45,6 +45,13 @@ public:
         }
     }
 
+    void clear()
+    {
+        scan();
+        pRisingFlag = false;
+        pFallingFlag = false;
+    }
+
     bool rising()
     {
         scan();
