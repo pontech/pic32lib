@@ -34,7 +34,10 @@ public:
 
         if(myStream->available() > 0) {
             us8 data = myStream->read();
-            buffer[length++] = data;
+
+            if(data != '\\') {
+                buffer[length++] = data;
+            }
 
             if(data == stopCharactor) {
                 stopCharactorFound = true;
