@@ -201,6 +201,18 @@ public:
         return Json(0);
     }
 
+    int contains(const char *data)
+    {
+        String string(data);
+
+        for(s8 i = 0; i < jsonSize; i++) {
+            if(key(i) == string) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     String toString()
     {
         s8 tail = tailLimit;
