@@ -24,7 +24,7 @@ public:
 
     typedef struct {
         fptr function;
-        us32 yield;
+        unsigned long yield;
         us16 temp;
         us16 temp2;
         us16 temp3;
@@ -32,9 +32,11 @@ public:
     } CronDetail;
 
     typedef us8 CronId;
+    typedef unsigned long (*ulong_fptr)();
 
-    Cron()
+    Cron(ulong_fptr timer = millis)
     {
+        systemTimer = timer;
         currentSlot = 0;
         for(us8 i = 0; i < cronSlots; i++) {
             resetDetails(i);
@@ -43,7 +45,7 @@ public:
 
     void scheduler(void)
     {
-        if(millis() >= slot[currentSlot].yield && slot[currentSlot].function != 0) {
+        if(systemTimer() >= slot[currentSlot].yield && slot[currentSlot].function != 0) {
             cronStatus |= 0x01;
             slot[currentSlot].yield = 0;
             ((fptr)(slot[currentSlot].function))();
@@ -220,6 +222,7 @@ public:
     }
 
 private:
+    ulong_fptr systemTimer;
     us8 currentSlot;
     us8 cronStatus;
     CronDetail slot[cronSlots];
