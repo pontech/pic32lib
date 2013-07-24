@@ -54,7 +54,6 @@ public:
 
     bool rising()
     {
-        scan();
         bool state = pRisingFlag;
         pRisingFlag = false;
         return state;
@@ -62,7 +61,6 @@ public:
 
     bool falling()
     {
-        scan();
         bool state = pFallingFlag;
         pFallingFlag = false;
         return state;
