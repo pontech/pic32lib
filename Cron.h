@@ -121,7 +121,9 @@ public:
         us8 i;
         for(i = 0; i < cronSlots; i++) {
             if(slot[i].function == fpointer) {
-                *id = i;
+                if(id != 0) {
+                    *id = i;
+                }
                 x++;
             }
         }

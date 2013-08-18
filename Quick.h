@@ -194,7 +194,7 @@ public:
             Serial.println(cardNumber, DEC);
             Serial.println(pinNumber, DEC);
         }
-        else if(parser.compare("c?p?")) {
+        else if(parser.compare("c?p?", true)) {
             parser.save();
             parser.advanceTail(1);
             parser.reverseHead(2);
@@ -212,7 +212,7 @@ public:
                 Serial.println(pin(c, p) ? "ON" : "OFF");
             }
         }
-        else if(parser.compare("c?")) {
+        else if(parser.compare("c?", true)) {
             Serial.println(parser.toString());
 
             parser.advanceTail(1);
