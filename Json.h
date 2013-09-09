@@ -1,7 +1,10 @@
 #ifndef JSON_H
 #define JSON_H
 
+#if defined(__PIC32MX__)
+    /* chipKIT-specific code goes here */
 #include <WProgram.h>
+#endif
 #include "Core.h"
 #include "TokenParser.h"
 #include "StringList.h"

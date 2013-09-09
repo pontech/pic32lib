@@ -1,8 +1,13 @@
 #ifndef TOKENPARSER_H
 #define TOKENPARSER_H
 
+#if defined(__PIC32MX__)
+    /* chipKIT-specific code goes here */
 #include <WProgram.h>
-#include <Stream.h>
+#else
+#include "chipKIT/Stream.h"
+#endif
+
 #include "Core.h"
 #include "Variant.h"
 
@@ -150,7 +155,8 @@ public:
     String toString()
     {
         if(head > tail) {
-            char array[(head - tail) + 1];
+            //char array[(head - tail) + 1];
+            char array[(sizeof(buffer)) + 1];
             us8 index = 0;
             for(us8 i = tail; i < head; i++) {
                 array[index++] = buffer[i];

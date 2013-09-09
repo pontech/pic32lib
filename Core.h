@@ -24,7 +24,10 @@ typedef unsigned short  us16;
 typedef unsigned int    us32;
 //typedef unsigned long   us64;
 
+#if defined(__PIC32MX__)
+    /* chipKIT-specific code goes here */
 #warning "PIC32 Arduino: don't know how to make reset(),nop(),clear_wdt(),us1,fptr,fptr_us8"
+#endif
 //typedef enum        {false = 0, true} us1;
 typedef void        (*fptr)(void);
 typedef void        (*fptr_us8)(us8);

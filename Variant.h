@@ -1,7 +1,12 @@
 #ifndef VARIANT_H
 #define VARIANT_H
 
+#if defined(__PIC32MX__)
+    /* chipKIT-specific code goes here */
 #include <WProgram.h>
+#else
+#include <math.h>
+#endif
 #include "Core.h"
 
 class Variant {

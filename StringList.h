@@ -1,7 +1,11 @@
 #ifndef STRINGLIST_H
 #define STRINGLIST_H
 
+#if defined(__PIC32MX__)
+    /* chipKIT-specific code goes here */
 #include <WProgram.h>
+#endif
+#include "chipKIT/WString.h"
 #include "Core.h"
 
 #define charactorSeperator '\r'
