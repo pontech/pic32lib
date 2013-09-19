@@ -8,7 +8,7 @@
 #include <math.h>
 #endif
 #include "Core.h"
-
+namespace chipKIT {
 class Variant {
 public:
     Variant(String string)
@@ -137,5 +137,5 @@ private:
     s32 value;
     s8 exp;
 };
-
+}
 #endif // VARIANT_H

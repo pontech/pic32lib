@@ -8,7 +8,7 @@
 #include "Core.h"
 #include "TokenParser.h"
 #include "StringList.h"
-
+namespace chipKIT{
 class Json {
 public:
     #define maxPositions 32
@@ -237,5 +237,5 @@ private:
     us8 jsonSize;
     s8 positions[maxPositions];
 };
-
+}
 #endif // JSON_H

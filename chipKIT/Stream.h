@@ -22,7 +22,7 @@
 
 #include <inttypes.h>
 #include "Print.h"
-
+namespace chipKIT{
 class Stream : public Print
 {
   public:
@@ -31,5 +31,5 @@ class Stream : public Print
     virtual int peek() = 0;
     virtual void flush() = 0;
 };
-
+}
 #endif

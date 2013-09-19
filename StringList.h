@@ -7,7 +7,7 @@
 #endif
 #include "chipKIT/WString.h"
 #include "Core.h"
-
+namespace chipKIT{
 #define charactorSeperator '\r'
 
 class StringList {
@@ -113,5 +113,5 @@ private:
     String list;
     us8 listSize;
 };
-
+}
 #endif // STRINGLIST_H

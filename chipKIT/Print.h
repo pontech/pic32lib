@@ -28,7 +28,7 @@
 #endif
 #include <stdint.h>
 #include "WString.h"
-
+namespace chipKIT{
 #define PRINT_DEC 10
 #define PRINT_HEX 16
 #define PRINT_OCT 8
@@ -72,5 +72,5 @@ class Print
 	void println(double, int = 2);
 	void println(void);
 };
-
+}
 #endif

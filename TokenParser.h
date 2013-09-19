@@ -10,7 +10,7 @@
 
 #include "Core.h"
 #include "Variant.h"
-
+namespace chipKIT{
 class TokenParser {
 public:
     typedef enum {
@@ -307,5 +307,5 @@ private:
     bool stopCharactorFound;
     TokenType type;
 };
-
+}
 #endif // TOKENPARSER_H
