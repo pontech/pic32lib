@@ -5,8 +5,8 @@
 #include "TokenParser.h"
 #include "StringList.h"
 
-#define keySize 20
-#define valueSize 16
+#define keySize 40
+#define valueSize 40
 
 class KeyValueTable {
     friend class Properties;
