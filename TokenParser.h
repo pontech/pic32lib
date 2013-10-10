@@ -14,8 +14,7 @@ public:
         JsonToken
     } TokenType;
 
-    TokenParser(Stream* stream, us8 bufferSize = 100)
-    {
+    TokenParser(Stream* stream, us8 bufferSize = 100) {
         myStream = stream;
         buffer = (us8*)malloc(bufferSize + 1);
         reset();
@@ -24,9 +23,7 @@ public:
         stopCharactorFound = false;
         type = InvalidToken;
     }
-
-    bool scan(us8 stopCharactor = '\r')
-    {
+    bool scan(us8 stopCharactor = '\r') {
         if(stopCharactorFound) {
             stopCharactorFound = false;
             length = 0;
@@ -49,106 +46,121 @@ public:
         }
         return stopCharactorFound;
     }
-
-    us8 getLength()
-    {
+    us8 getLength() {
         return length;
     }
-
-    us8 getTail()
-    {
+    us8 getTail() {
         return tail;
     }
-
-    us8 getHead()
-    {
+    us8 getHead() {
         return head;
     }
-
-    us8 remaining()
-    {
+    us8 remaining() {
         return length - head;
     }
-
-    bool isJson()
-    {
+    bool isJson() {
         return (type == JsonToken) ? true : false;
     }
-
-    void reset()
-    {
+    void reset() {
         head = 0;
         tail = 0;
     }
-
-    void save()
-    {
+    void save() {
         savedHead = head;
         savedTail = tail;
     }
-
-    void restore()
-    {
+    void restore() {
         head = savedHead;
         tail = savedTail;
     }
-
     // todo: add bounds checking
-    bool startsWith(const char* string, bool caseSensitive = false)
-    {
-      us8 i = 0;
-      us8 index = tail;
-      while(string[i] != 0) {
-        if(string[i] != '?') {
-            if(!characterCompare(buffer[index], string[i], caseSensitive)) {
-                return false;
-            }
-        }
-        i++;
-        index++;
-      }
-      return true;
+    bool startsWith(const char* string, bool caseSensitive = false) {
+		us8 i = 0;
+		us8 index = tail;
+#ifdef DEBUG_TOKEN_PARSER
+		print(string);
+		print("=");
+		print(toString());
+		print("=>");
+#endif
+		while(string[i] != 0) {
+			if(string[i] != '?') {
+				if(!characterCompare(buffer[index], string[i], caseSensitive)) {
+#ifdef DEBUG_TOKEN_PARSER
+					println("false");
+#endif
+					return false;
+				}
+			}
+			i++;
+			index++;
+		}
+#ifdef DEBUG_TOKEN_PARSER
+		println("true");
+#endif
+		return true;
     }
-
     // Compares an entire string for equality
-    bool compare(const char* string, bool caseSensitive = false)
-    {
-      us8 i = 0;
-      us8 index = tail;
-      while(string[i] != 0) {
-        if(string[i] != '?') {
-            if(!characterCompare(buffer[index], string[i], caseSensitive)) {
-                return false;
-            }
-        }
-        i++;
-        index++;
-      }
+    bool compare(const char* string, bool caseSensitive = false) {
+		us8 i = 0;
+		us8 index = tail;
+#ifdef DEBUG_TOKEN_PARSER
+		print(string);
+		print("=");
+		print(toString());
+		print("=>");
+#endif
+		while(string[i] != 0) {
+			if(string[i] != '?') {
+				if(!characterCompare(buffer[index], string[i], caseSensitive)) {
+#ifdef DEBUG_TOKEN_PARSER
+					println("false");
+#endif
+					return false;
+				}
+			}
+			i++;
+			index++;
+		}
 
-      if((head - tail) != i) {
-          return false;
-      }
-      return true;
+		if((head - tail) != i) {
+#ifdef DEBUG_TOKEN_PARSER
+			println("false (head - tail) != i");
+#endif
+			return false;
+		}
+#ifdef DEBUG_TOKEN_PARSER
+		println("true");
+#endif
+		return true;
     }
-
-    // todo: enforce consecutive charactors
-    bool contains(const char* string, bool caseSensitive = false)
-    {
+    // todo: enforce consecutive characters
+    bool contains(const char* string, bool caseSensitive = false) {
         us8 i = 0;
         us8 index = tail;
+#ifdef DEBUG_TOKEN_PARSER
+		print(string);
+		print("=");
+		print(toString());
+		print("=>");
+#endif
         while(string[i] != 0 && index < length) {
             if(characterCompare(buffer[index++], string[i], caseSensitive)) {
                 i++;
                 if(string[i] == 0) {
+#ifdef DEBUG_TOKEN_PARSER
+					println("true");
+#endif
                     return true;
                 }
             }
         }
+#ifdef DEBUG_TOKEN_PARSER
+		println("false");
+#endif
         return false;
     }
-
-    String toString()
-    {
+    String toString() {
         if(head > tail) {
             char array[(head - tail) + 1];
             us8 index = 0;
@@ -161,9 +173,7 @@ public:
         }
         return String();
     }
-	
-    bool nextToken(s8 index = -1)
-    {
+	    bool nextToken(s8 index = -1) {
         if((0 < index) && (index < length)) {
             head = index;
         }
@@ -195,27 +205,21 @@ public:
         type = InvalidToken;
         return false;
     }
-
-    bool advanceTail(us8 advance)
-    {
+    bool advanceTail(us8 advance) {
         if(advance < (head - tail)) {
             tail += advance;
             return true;
         }
         return false;
     }
-
-    bool reverseHead(us8 reverse)
-    {
+    bool reverseHead(us8 reverse) {
         if(reverse < (head - tail)) {
             head = head - reverse;
             return true;
         }
         return false;
     }
-
-    void advanceHead(us8 advance)
-    {
+    void advanceHead(us8 advance) {
         us8 limit = length - head;
         if(advance < limit) {
             head += advance;
@@ -224,7 +228,6 @@ public:
             head += (limit - 1);
         }
     }
-
     us8 hexCharToNibble(us8 c) {
         // make upper case
         if('a' <= c && c <= 'z') {
@@ -239,24 +242,16 @@ public:
         }
         return c & 0xf;
     }
-
-    Variant toVariant()
-    {
+    Variant toVariant() {
         return Variant(toString());
     }
-
-    void print(const String &string)
-    {
+    void print(const String &string) {
         myStream->print(string);
     }
-
-    void println(const String &string)
-    {
+    void println(const String &string) {
         myStream->println(string);
     }
-
-    static s8 match(us8 charactor, const char* delimiters = 0)
-    {
+    static s8 match(us8 charactor, const char* delimiters = 0) {
         us8 i = 0;
         while(delimiters[i] != 0) {
             if(charactor == delimiters[i]) {
@@ -268,8 +263,7 @@ public:
     }
 
 private:
-    inline bool characterCompare(us8 char1, us8 char2, bool caseSensitive = true)
-    {
+    inline bool characterCompare(us8 char1, us8 char2, bool caseSensitive = true) {
         if(char1 == char2) {
             return true;
         }
@@ -281,9 +275,7 @@ private:
         }
         return false;
     }
-
-    inline us8 uppercase(us8 x)
-    {
+    inline us8 uppercase(us8 x) {
         // make upper case
         if ('a' <= x && x <= 'z') {
             x -= 0x20;
