@@ -12,7 +12,42 @@ typedef bool us1;	// for some reason typedef for bool or boolean do not work
 // Stepper Motors
 // stepper count is used to let the stepper code know how many controllers to implement
 #define MOTOR_COUNT				3
-//#define MOTOR_ENABLE			1 // Define this if you want to use the motor enable pin
+//#define MOTOR_ENABLE			1 // todo: 3 Define this if you want to use the motor enable pin (untested on pic32)
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// PIC32 / chipKIT constants
+//////////////////////////////////////////////////////////////////////////////////////////
+const uint32_t delay_5us = CORE_TICK_RATE/1000*5;
+const uint32_t delay_250us = CORE_TICK_RATE/1000*250;
+const uint32_t delay_250ms = CORE_TICK_RATE/1000*250000;
+
+// Change this number to control the fundamental unit of step delay
+const uint32_t step_interrupt_period = delay_250us;
+
+// OUTPUT: Step, Direction and Enable pins
+#define step1_stp           led2
+#define step1_dir           led1
+#define step1_enable        c0p2
+#define step2_stp           c1p0
+#define step2_dir           c1p1
+#define step2_enable        c1p2
+#define step3_stp           c2p0
+#define step3_dir           c2p1
+#define step3_enable        c2p2
+
+// INPUTS: +/- direction limit switches
+#define step1_limit_minus   c3p0
+#define step2_limit_minus   c3p1
+#define step3_limit_minus   c3p2
+#define step1_limit_plus    c3p0
+#define step2_limit_plus    c3p1
+#define step3_limit_plus    c3p2
+
+us1 stepper_timer_enable = false; // this used to be to turn PIC18 timer interrupt on and off
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// End of PIC32 / chipKIT constants
+//////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef GONE // from plib project.h file
 #define setup_steppers() \
@@ -96,23 +131,6 @@ typedef bool us1;	// for some reason typedef for bool or boolean do not work
 #define step3_dpot_cs       pl_PORTJ_4
 
 #endif
-
-#define step1_stp           led1
-#define step1_dir           led2
-#define step1_enable        c0p2
-#define step2_stp           c1p0
-#define step2_dir           c1p1
-#define step2_enable        c1p2
-#define step3_stp           c2p0
-#define step3_dir           c2p1
-#define step3_enable        c2p2
-
-#define step1_limit_minus   c3p0
-#define step2_limit_minus   c3p1
-#define step3_limit_minus   c3p2
-#define step1_limit_plus    c3p0
-#define step2_limit_plus    c3p1
-#define step3_limit_plus    c3p2
 
 typedef enum {
     motor_reverse = 0,
@@ -212,182 +230,204 @@ volatile uus16 motor_stp_delay_current[MOTOR_COUNT] = {0xFFC0,0xFFC0,0xFFC0}; //
 volatile uus16 motor_stp_delay_counter[MOTOR_COUNT] = {0x0000,0x0000,0x0000}; // 1 second for 2000 steps
 volatile uus16 motor_stp_delay[MOTOR_COUNT]         = {0xFFF8,0xFFF8,0xFFF8};
 
-const uint32_t delay_5us = CORE_TICK_RATE/1000*5;
-const uint32_t delay_250us = CORE_TICK_RATE/1000*250;
-const uint32_t delay_250ms = CORE_TICK_RATE/1000*250000;
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-	// This code cannot be generalized into an array due to reading and setting specific pins per motor
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-	void step_motor(us8 motor)
-	{
-		switch(motor) {
-#if STEPPER_COUNT >= 1
-			case 0:
-				if (digitalRead(step1_dir) == motor_forward) {
-					if( ~digitalRead(step1_limit_plus) ) {
-						digitalWrite(step1_stp, 0);
-						motor_position[motor]++;
-						digitalWrite(step1_stp, 1);
-					}
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+// This code cannot be generalized into an array due to reading and setting specific pins per motor
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+void step_motor(us8 motor) {
+	switch(motor) {
+#if MOTOR_COUNT >= 1
+		case 0:
+			if (digitalRead(step1_dir) == (bool)motor_forward) {
+				if( ~digitalRead(step1_limit_plus) ) {
+					digitalWrite(step1_stp, 0);
+					motor_position[motor]++;
+					digitalWrite(step1_stp, 1);
 				}
-				else {
-					if( ~digitalRead(step1_limit_minus) ) {
-						digitalWrite(step1_stp, 0);
-						motor_position[motor]--;
-						digitalWrite(step1_stp, 1);
-					}
-				}
-				break;
-#endif
-#if STEPPER_COUNT >= 2
-			case 1:
-				if (digitalRead(step2_dir) == motor_forward) {
-					if( ~digitalRead(step2_limit_plus) ) {
-						digitalWrite(step2_stp, 0);
-						motor_position[motor]++;
-						digitalWrite(step2_stp, 1);
-					}
-				}
-				else {
-					if( ~digitalRead(step2_limit_minus) ) {
-						digitalWrite(step2_stp, 0);
-						motor_position[motor]--;
-						digitalWrite(step2_stp, 1);
-					}
-				}
-				break;
-#endif
-#if STEPPER_COUNT >= 3
-			case 2:
-				if (digitalRead(step3_dir) == motor_forward) {
-					if( ~digitalRead(step3_limit_plus) ) {
-						digitalWrite(step3_stp, 0);
-						motor_position[motor]++;
-						digitalWrite(step3_stp, 1);
-					}
-				}
-				else {
-					if( ~digitalRead(step3_limit_minus) ) {
-						digitalWrite(step3_stp, 0);
-						motor_position[motor]--;
-						digitalWrite(step3_stp, 1);
-					}
-				}
-				break;
-#endif
-		}
-	}
-
-	uint32_t stepper_interrupt(uint32_t currentTime) {
-		us8 motor = 1;
-#ifdef NEED_TO_PORT
-		if (stepper_timer_int_flag) {
-#endif
-			motor_accel_count.value++;
-			if ( motor_accel_count.value == motor_accel_mod.value ) {
-				motor_accel_count.value = 0;
 			}
-
-			digitalWrite(led1, ~digitalRead(led1));
-
-			us8 status = 0;
-			for( motor = 0; motor < MOTOR_COUNT; motor++ ) {
-				if ((motor_position[motor] == motor_destination[motor]) && (!motor_fContinuous[motor] || motor_fChangeDirection[motor])) {
-					motor_fMoving[motor] = false;
-					status = status | (1 << motor);
+			else {
+				if( ~digitalRead(step1_limit_minus) ) {
+					digitalWrite(step1_stp, 0);
+					motor_position[motor]--;
+					digitalWrite(step1_stp, 1);
 				}
-				else {
-					motor_stp_delay_counter[motor].value++;
-					if( motor_stp_delay_counter[motor].value == 0 )  // then step
-					{
-						step_motor(motor);
-						motor_stp_delay_counter[motor].value = motor_stp_delay_current[motor].value;
+			}
+			break;
+#endif
+#if MOTOR_COUNT >= 2
+		case 1:
+			if (digitalRead(step2_dir) == (bool)motor_forward) {
+				if( ~digitalRead(step2_limit_plus) ) {
+					digitalWrite(step2_stp, 0);
+					motor_position[motor]++;
+					digitalWrite(step2_stp, 1);
+				}
+			}
+			else {
+				if( ~digitalRead(step2_limit_minus) ) {
+					digitalWrite(step2_stp, 0);
+					motor_position[motor]--;
+					digitalWrite(step2_stp, 1);
+				}
+			}
+			break;
+#endif
+#if MOTOR_COUNT >= 3
+		case 2:
+			if (digitalRead(step3_dir) == (bool)motor_forward) {
+				if( ~digitalRead(step3_limit_plus) ) {
+					digitalWrite(step3_stp, 0);
+					motor_position[motor]++;
+					digitalWrite(step3_stp, 1);
+				}
+			}
+			else {
+				if( ~digitalRead(step3_limit_minus) ) {
+					digitalWrite(step3_stp, 0);
+					motor_position[motor]--;
+					digitalWrite(step3_stp, 1);
+				}
+			}
+			break;
+#endif
+	}
+}
+uint32_t stepper_interrupt(uint32_t currentTime) {
+	us8 motor = 1;
+#ifdef NEED_TO_PORT
+	if (stepper_timer_int_flag) {
+#endif
+		motor_accel_count.value++;
+		if ( motor_accel_count.value == motor_accel_mod.value ) {
+			motor_accel_count.value = 0;
+		}
 
-						if (!motor_fAtSpeed[motor]) {
-							if (motor_fAccelerate[motor]) {
-								motor_decel_point[motor]++;
-								if( motor_decel_point[motor] >= motor_half_way[motor] ) {
-									// fShortMove
-									motor_fAccelerate[motor] = false;
-									motor_stp_delay_target[motor].value = motor_stp_delay_minimum[motor].value;
-								}
-							}
-							else {
-								motor_decel_point[motor]--;
+		//digitalWrite(led1, !digitalRead(led1));
+
+		us8 status = 0;
+		for( motor = 0; motor < MOTOR_COUNT; motor++ ) {
+			if ((motor_position[motor] == motor_destination[motor]) && (!motor_fContinuous[motor] || motor_fChangeDirection[motor])) {
+				motor_fMoving[motor] = false;
+				status = status | (1 << motor);
+			}
+			else {
+				motor_stp_delay_counter[motor].value++;
+				if( motor_stp_delay_counter[motor].value == 0 )  // then step
+				{
+					step_motor(motor);
+					motor_stp_delay_counter[motor].value = motor_stp_delay_current[motor].value;
+
+					if (!motor_fAtSpeed[motor]) {
+						if (motor_fAccelerate[motor]) {
+							motor_decel_point[motor]++;
+							if( motor_decel_point[motor] >= motor_half_way[motor] ) {
+								// fShortMove
+								motor_fAccelerate[motor] = false;
+								motor_stp_delay_target[motor].value = motor_stp_delay_minimum[motor].value;
 							}
 						}
+						else {
+							motor_decel_point[motor]--;
+						}
 					}
+				}
 
-					if ( motor_accel_count.value == 0x0000 ) {
-						if (!motor_fAtSpeed[motor]) {
-							if (motor_fAccelerate[motor]) {
-								motor_stp_delay_current[motor].value += motor_stp_delay_accel[motor].value;
-								if (motor_stp_delay_current[motor].value >= motor_stp_delay_target[motor].value) {
-									motor_stp_delay_current[motor].value = motor_stp_delay_target[motor].value;
-									motor_stp_delay_target[motor].value = motor_stp_delay_minimum[motor].value;
-									motor_fAccelerate[motor] = false;
-									motor_fAtSpeed[motor] = true;
-								}
+				if ( motor_accel_count.value == 0x0000 ) {
+					if (!motor_fAtSpeed[motor]) {
+						if (motor_fAccelerate[motor]) {
+							motor_stp_delay_current[motor].value += motor_stp_delay_accel[motor].value;
+							if (motor_stp_delay_current[motor].value >= motor_stp_delay_target[motor].value) {
+								motor_stp_delay_current[motor].value = motor_stp_delay_target[motor].value;
+								motor_stp_delay_target[motor].value = motor_stp_delay_minimum[motor].value;
+								motor_fAccelerate[motor] = false;
+								motor_fAtSpeed[motor] = true;
 							}
-							else {
-								motor_stp_delay_current[motor].value -= motor_stp_delay_accel[motor].value;
-								if (motor_stp_delay_current[motor].value <= motor_stp_delay_target[motor].value) {
-									motor_stp_delay_current[motor].value = motor_stp_delay_target[motor].value;
-									motor_fAccelerate[motor] = true;
-									motor_fAtSpeed[motor] = true;
-								}
+						}
+						else {
+							motor_stp_delay_current[motor].value -= motor_stp_delay_accel[motor].value;
+							if (motor_stp_delay_current[motor].value <= motor_stp_delay_target[motor].value) {
+								motor_stp_delay_current[motor].value = motor_stp_delay_target[motor].value;
+								motor_fAccelerate[motor] = true;
+								motor_fAtSpeed[motor] = true;
 							}
 						}
 					}
 				}
 			}
-
-#ifdef NEED_TO_PORT
-			stepper_timer_msb = motor_stp_delay_fixed.parts.hi.value;
-			stepper_timer_lsb = motor_stp_delay_fixed.parts.lo.value;
-
-			if (status == 0x07) {
-				stepper_timer_enable = 0;
-			}
-			stepper_timer_int_flag = 0;
-#endif
-
-#ifdef NEED_TO_PORT
 		}
+
+#ifdef NEED_TO_PORT
+		stepper_timer_msb = motor_stp_delay_fixed.parts.hi.value;
+		stepper_timer_lsb = motor_stp_delay_fixed.parts.lo.value;
 #endif
-		return (currentTime + delay_250ms);
+
+		if (status == 0x07) {
+			stepper_timer_enable = 0;
+		}
+#ifdef NEED_TO_PORT
+		stepper_timer_int_flag = 0;
+#endif
+
+#ifdef NEED_TO_PORT
 	}
+#endif
+	return (currentTime + step_interrupt_period);
+}
 
 class StepAndDirection {
 public:
-
     StepAndDirection() {
 	    attachCoreTimerService(stepper_interrupt);
     }
-
+	void print_ok(TokenParser &parser, us8 status) {
+		parser.print("OK");
+		if(status > 0) {
+			parser.print(".");
+			//print_dec_us8(status);
+		}
+	}
+	void print_nok(TokenParser &parser, us8 status) {
+		parser.print("NOK");
+		if(status > 0) {
+			parser.print(".");
+			//print_dec_us8(status);
+		}
+	}
+	void print_cr(TokenParser &parser) {
+	  parser.print("\r\n");
+	}
+	void print_dec_s32(TokenParser &parser, s32 value) {
+	  parser.print(String(value));
+	}
+	void print_us16(TokenParser &parser, us16 value) {
+	  parser.print(String(value));
+	}
+	void print_us32(TokenParser &parser, us32 value) {
+	  parser.print(String(value));
+	}
+	void print_byte(TokenParser &parser, us8 value) {
+	  parser.print(String(value));
+	}
 	void stepper_powered(us8 motor, us1 powered) {
 #ifdef MOTOR_ENABLE
 		switch(motor) {
 #if MOTOR_COUNT >= 1
 			case 0:
-				step1_enable = powered;
+				digitalWrite(step1_enable, powered);
 				break;
 #endif
 #if MOTOR_COUNT >= 2
 			case 1:
-				step2_enable = powered;
+				digitalWrite(step2_enable, powered);
 				break;
 #endif
 #if MOTOR_COUNT >= 3
 			case 2:
-				step3_enable = powered;
+				digitalWrite(step3_enable, powered);
 				break;
 #endif
 		}
 #endif
 	}
-
 	void stepper_direction_set(us8 motor, motor_direction direction) {
 		switch(motor) {
 	#if MOTOR_COUNT >= 1
@@ -407,7 +447,6 @@ public:
 	#endif
 		}
 	}
-
 	motor_direction stepper_direction_get(us8 motor) {
 		motor_direction direction;
 		switch(motor) {
@@ -429,7 +468,6 @@ public:
 		}
 		return direction;
 	}
-
 	us1 stepper_limit_minus_get(us8 motor) {
 		us1 limit;
 		switch(motor) {
@@ -451,7 +489,6 @@ public:
 		}
 		return !limit;
 	}
-
 	us1 stepper_limit_plus_get(us8 motor) {
 		us1 limit;
 		switch(motor) {
@@ -473,8 +510,6 @@ public:
 		}
 		return !limit;
 	}
-
-
 	us16 timer_from_freq(us16 freq_Hz) {
 		// Don't forget to divide by 2, once for going high, once for going low...
 
@@ -493,12 +528,10 @@ public:
 		// 0xb1e0 = 100Hz
 		return 0; //0xd8f0;
 	}
-
 	/////////////////////////////////////////////////////////////////////////////
 	// decelStop
 	/////////////////////////////////////////////////////////////////////////////
-	void decelStop(us8 motor)	// H0
-	{
+	void decelStop(us8 motor) {	// H0
 		us1 step_dir = 0;
 		noInterrupts(); //stepper_timer_int_enable = 0;
 		motor_fAtSpeed[motor] = false;
@@ -510,9 +543,7 @@ public:
 			motor_destination[motor] = motor_position[motor] - motor_decel_point[motor];
 		interrupts(); //stepper_timer_int_enable = 1;
 	}
-
-	void debugStepperState(us8 motor)
-	{
+	void debugStepperState(us8 motor) {
 	#ifdef STP_DEBUG
 		print("motor_fChangeDirection="); print_us8(motor_fChangeDirection[motor]); print_cr();
 		print("motor_fContinuous="); print_us8(motor_fContinuous[motor]); print_cr();
@@ -536,38 +567,36 @@ public:
 		print("motor_half_way="); print_us32(motor_half_way[motor]); print_cr();
 	#endif
 	}
-
 	/////////////////////////////////////////////////////////////////////////////
 	// setDirection
 	/////////////////////////////////////////////////////////////////////////////
-	void setDirection(us8 motor)
-	{
+	void setDirection(us8 motor) {
 		s32 local_decel;
 		s32 local_des;
 		s32 local_pos;
 		s32 temp;
 
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 		print("sd:");
-	#endif
+#endif
 		/////////////////////////////////////////////////////////////////////////////
 		// Do we need to go forward or backwards?
 		/////////////////////////////////////////////////////////////////////////////
 		if (motor_destination[motor] > motor_position[motor]) {
 			motor_fForward[motor] = motor_forward;
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 			print("fwd");
-	#endif
+#endif
 		}
 		else {
 			motor_fForward[motor] = motor_reverse;
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 			print("rev");
-	#endif
+#endif
 		}
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 		print(":");
-	#endif
+#endif
 
 		motor_half_way[motor] = 0x7ffffff;
 		motor_fChangeDirection[motor] = false;
@@ -576,20 +605,20 @@ public:
 		{
 			motor_decel_point[motor] = 0;
 
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 			print("Not Moving:");
-	#endif
+#endif
 			motor_fMoving[motor] = true;
 			if (motor_stp_delay_minimum[motor].value <= motor_stp_delay[motor].value) {
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 				print("sm<=sd:");
-	#endif
+#endif
 				motor_stp_delay_current[motor].value = motor_stp_delay_minimum[motor].value;
 			}
 			else {
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 				print("sm >sd:");
-	#endif
+#endif
 				motor_stp_delay_current[motor].value = 0;
 			}
 			motor_stp_delay_target[motor].value = motor_stp_delay[motor].value;
@@ -598,38 +627,35 @@ public:
 		}
 		else
 		{
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 			print("Is  Moving:");
-	#endif
+#endif
 			if ((!motor_fAccelerate[motor]) && (!motor_fAtSpeed[motor])) // Decelerating
 			{
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 				print("De:");
-	#endif
+#endif
 				motor_stp_delay_target[motor].value = motor_stp_delay[motor].value;
 				motor_fAccelerate[motor] = true;
 			}
 			motor_direction step_dir = stepper_direction_get(motor);
 			if ((step_dir == motor_forward && !motor_fForward[motor]) || ( (step_dir == motor_reverse) && motor_fForward[motor])) // Change Direction
 			{
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 				print("ChDir:");
-	#endif
+#endif
 				motor_fChangeDirection[motor] = true;
 				motor_save_dest[motor] = motor_destination[motor];
 				decelStop(motor);
 			}
 		}
 
-
-
-
 		if (!motor_fChangeDirection[motor])
 		{
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 			print("!ChDir:");
 			print_cr();
-	#endif
+#endif
 			// Bug causing values
 			//SA=10 (acceleration factor) slopeSpeed
 			//SD=700 (step delay)         stepDelay
@@ -645,9 +671,9 @@ public:
 			interrupts(); //stepper_timer_int_enable = 1;
 
 			temp = local_des - local_pos;
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 			print("temp="); print_us32(temp); print_cr();
-	#endif
+#endif
 
 			if(temp < 0) {
 				temp = -temp;
@@ -655,13 +681,13 @@ public:
 					temp = 0x7fffffff;
 				}
 			}
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 			print("temp="); print_us32(temp); print_cr();
-	#endif
+#endif
 			temp /= 2;
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 			print("temp="); print_us32(temp); print_cr();
-	#endif
+#endif
 			motor_half_way[motor] = temp + local_decel;
 
 			if (motor_fForward[motor])
@@ -675,29 +701,23 @@ public:
 
 			debugStepperState(motor);
 
-	#ifdef STP_DEBUG
+#ifdef STP_DEBUG
 		print("local_des="); print_us32(local_des); print_cr();
 		print("local_pos="); print_us32(local_pos); print_cr();
 		print("local_decel="); print_us32(local_decel); print_cr();
 		print("temp="); print_us32(temp); print_cr();
-	#endif
-			interrupts(); //stepper_timer_int_enable = 1;
-#ifdef NEED_TO_PORT
-		stepper_timer_enable = 1;
 #endif
+		interrupts(); //stepper_timer_int_enable = 1;
+		stepper_timer_enable = 1;
 		}
 	}
-
 	void move_immediate(us8 motor, s32 position) {
 		noInterrupts(); //stepper_timer_int_enable = 0;
 		motor_destination[motor] = position;
 		setDirection(motor);
 		interrupts(); //stepper_timer_int_enable = 1;
-#ifdef NEED_TO_PORT
 		stepper_timer_enable = 1;
-#endif
 	}
-
 	void increment_immediate(us8 motor, s32 offset) {
 		noInterrupts(); //stepper_timer_int_enable = 0;
 		if( motor_fChangeDirection[motor] == true ) {
@@ -708,11 +728,8 @@ public:
 		}
 		setDirection(motor);
 		interrupts(); //stepper_timer_int_enable = 1;
-#ifdef NEED_TO_PORT
 		stepper_timer_enable = 1;
-#endif
 	}
-
 	/////////////////////////////////////////////////////////////////////////////
 	// HI / absStop
 	/////////////////////////////////////////////////////////////////////////////
@@ -721,21 +738,15 @@ public:
 		motor_destination[motor] = motor_position[motor];
 		motor_fContinuous[motor] = false;
 		interrupts(); //stepper_timer_int_enable = 1;
-#ifdef NEED_TO_PORT
 		stepper_timer_enable = 1;
-#endif
 	}
-
 	void home(us8 motor, s32 position) {
 		noInterrupts(); //stepper_timer_int_enable = 0;
 		motor_position[motor] = position;
 		motor_destination[motor] = position;
 		interrupts(); //stepper_timer_int_enable = 1;
-#ifdef NEED_TO_PORT
 		stepper_timer_enable = 1;
-#endif
 	}
-
 	void stepper_init() {
 		us8 motor;
 	#ifdef STP_DEBUG
@@ -775,13 +786,11 @@ public:
 		stepper_timer_lsb = motor_stp_delay_fixed.parts.lo.value;
 #endif
 	}
-
 	/////////////////////////////////////////////////////////////////////////////
 	// checkPins
 	/////////////////////////////////////////////////////////////////////////////
-	void checkPins(void)
-	{
-		//pLED ^= 1;		//toggle pLED
+	void checkPins(void) {
+		//digitalWrite(led2,!digitalRead(led2); //toggle pLED
 		us1 fCheckTypeNew = true;
 		us8 motor = 0;
 		s32 local_des;
@@ -815,8 +824,7 @@ public:
 			}
 		}
 	}
-
-	void loop() {
+	void loop(TokenParser &parser) {
 		us8 motor = 0;
 		s32 step_delta;
 		s32 decel_local;
@@ -843,21 +851,17 @@ public:
 		///////////////////////////////////////////////////////////
 		checkPins();
 	/*
-		print("DES: ");
-		stepper_timer_int_enable = 0;
+		parser.print("DES: ");
+		noInterrupts(); //stepper_timer_int_enable = 0;
 		step_delta = (us32)motor_destination[motor];
-		stepper_timer_int_enable = 1;
+		interrupts(); //stepper_timer_int_enable = 1;
 
-		print_us32((us32)step_delta);
-		print(" ");
+		print_dec_s32(parser, (us32)step_delta);
+		parser.print(" ");
 
-		print_cr();
-		service_usb();
-		process_cdc_acm_tx();
+		print_cr(parser);
 	*/
 		for ( motor = 0; motor < MOTOR_COUNT; motor++ ) {
-
-
 			if (!motor_fMoving[motor]) {
 				// Should we fKeepOn the motor windings?
 				stepper_powered(motor, motor_fKeepOn[motor]);
@@ -891,12 +895,10 @@ public:
 			}
 		}
 	}
-
 	/////////////////////////////////////////////////////////////////////////////
 	// readDirectionSign
 	/////////////////////////////////////////////////////////////////////////////
-	us8 readDirectionSign(us8 motor)
-	{
+	us8 readDirectionSign(us8 motor) {
 		s32 destination;
 		s32 position;
 		destination = motor_destination[motor];
@@ -912,42 +914,11 @@ public:
 			return '0';
 		}
 	}
-
-	void print_ok(TokenParser &parser, us8 status) {
-		parser.print("OK");
-		if(status > 0) {
-			parser.print(".");
-			//print_dec_us8(status);
-		}
-	}
-	void print_nok(TokenParser &parser, us8 status) {
-		parser.print("NOK");
-		if(status > 0) {
-			parser.print(".");
-			//print_dec_us8(status);
-		}
-	}
-	void print_cr(TokenParser &parser) {
-	  parser.print("\r\n");
-	}
-	void print_dec_s32(TokenParser &parser, s32 value) {
-	  parser.print(String(value));
-	}
-	void print_us16(TokenParser &parser, us16 value) {
-	  parser.print(String(value));
-	}
-	void print_us32(TokenParser &parser, us32 value) {
-	  parser.print(String(value));
-	}
-	void print_byte(TokenParser &parser, us8 value) {
-	  parser.print(String(value));
-	}
-
     void command(TokenParser &parser) {
 
 		if(parser.startsWith("STP?")) {
 			parser.advanceTail(3);
-			us8 motor = parser.toVariant().toInt() + array_base_type;
+			us8 motor = parser.toVariant().toInt() - array_base_type;
 			
 			if( !(motor < MOTOR_COUNT) ) {
 				print_nok(parser, 0);
@@ -1159,6 +1130,47 @@ public:
 				else {
 					parser.print("!");
 				}
+
+				print_cr(parser);
+				parser.print("motor_fAccelerate=");
+				print_dec_s32(parser, motor_fAccelerate[motor]);
+				print_cr(parser);
+				parser.print("motor_fMoving=");
+				print_dec_s32(parser, motor_fMoving[motor]);
+				print_cr(parser);
+				parser.print("motor_fAtSpeed=");
+				print_dec_s32(parser, motor_fAtSpeed[motor]);
+				print_cr(parser);
+				parser.print("motor_fKeepOn=");
+				print_dec_s32(parser, motor_fKeepOn[motor]);
+				print_cr(parser);
+				parser.print("motor_fContinuous=");
+				print_dec_s32(parser, motor_fContinuous[motor]);
+				print_cr(parser);
+				parser.print("motor_fChangeDirection=");
+				print_dec_s32(parser, motor_fChangeDirection[motor]);
+				print_cr(parser);
+				parser.print("motor_fForward=");
+				print_dec_s32(parser, motor_fForward[motor]);
+				print_cr(parser);
+				parser.print("motor_stp_delay_accel=");
+				print_dec_s32(parser, motor_stp_delay_accel[motor].value);
+				print_cr(parser);
+				parser.print("motor_stp_delay_minimum=");
+				print_dec_s32(parser, motor_stp_delay_minimum[motor].value);
+				print_cr(parser);
+				parser.print("motor_stp_delay_target=");
+				print_dec_s32(parser, motor_stp_delay_target[motor].value);
+				print_cr(parser);
+				parser.print("motor_stp_delay_current=");
+				print_dec_s32(parser, motor_stp_delay_current[motor].value);
+				print_cr(parser);
+				parser.print("motor_stp_delay_counter=");
+				print_dec_s32(parser, motor_stp_delay_counter[motor].value);
+				print_cr(parser);
+				parser.print("motor_stp_delay=");
+				print_dec_s32(parser, motor_stp_delay[motor].value);
+				
 				goto done;
 			}
 			parser.print("N");
