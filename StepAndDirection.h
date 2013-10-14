@@ -721,6 +721,17 @@ public:
 		interrupts(); //stepper_timer_int_enable = 1;
 		stepper_timer_enable = 1;
 	}
+	
+	void h_plus(us8 motor) {
+		move_immediate(motor, 0x7fffffff);
+		motor_fContinuous[motor] = true;
+	}
+	
+	void h_minus(us8 motor) {
+		move_immediate(motor, -0x80000000);
+		motor_fContinuous[motor] = true;
+	}
+				
 	void increment_immediate(us8 motor, s32 offset) {
 		noInterrupts(); //stepper_timer_int_enable = 0;
 		if( motor_fChangeDirection[motor] == true ) {
@@ -928,30 +939,25 @@ public:
 				goto done;
 			}
             parser.nextToken();
+			//parser.println(parser.toString());
 			if (parser.startsWith("V?")) {
 				parser.print("STP100 V2.3");
 				goto done;
 			}
 			else if (parser.startsWith("H+")) {
-				parser.println(parser.toString());
-				move_immediate(motor, 0x7fffffff);
-				motor_fContinuous[motor] = true;
+				h_plus(motor);
 				goto ok;
 			}
 			else if (parser.startsWith("H-")) {
-				parser.println(parser.toString());
-				move_immediate(motor, -0x80000000);
-				motor_fContinuous[motor] = true;
+				h_minus(motor);
 				goto ok;
 			}
 			else if (parser.startsWith("H0")) {
-				parser.println(parser.toString());
 				decelStop(motor);
 				motor_fContinuous[motor] = false;
 				goto ok;
 			}
 			else if (parser.startsWith("HA")) {
-				parser.println(parser.toString());
 				us8 i;
 				for(i = 0; i < MOTOR_COUNT; i++) {
 					halt_immediate(i);
@@ -959,19 +965,16 @@ public:
 				goto ok;
 			}
 			else if (parser.startsWith("HI")) {
-				parser.println(parser.toString());
 				halt_immediate(motor);
 				goto ok;
 			}
 			else if (parser.startsWith("HM?")) {
-				parser.println(parser.toString());
 				parser.advanceTail(2);
 				s32 value = parser.toVariant().toInt();
 				home(motor, value);
 				goto ok;
 			}
 			else if (parser.startsWith("MI?")) {
-				parser.println(parser.toString());
 				parser.advanceTail(2);
 				s32 value = parser.toVariant().toInt();
 				parser.println(String(value));
@@ -979,19 +982,16 @@ public:
 				goto ok;
 			}
 			else if (parser.startsWith("II?")) {
-				parser.println(parser.toString());
 				parser.advanceTail(2);
 				s32 value = parser.toVariant().toInt();
 				increment_immediate(motor, value);
 				goto ok;
 			}
 			else if (parser.startsWith("RSD")) {
-				parser.println(parser.toString());
 				print_dec_s32(parser, motor_stp_delay[motor].value);
 				goto done;
 			}
 			else if (parser.startsWith("SD?")) {
-				parser.println(parser.toString());
 				parser.advanceTail(2);
 				us16 temp = parser.toVariant().toInt();
 				noInterrupts(); //stepper_timer_int_enable = 0;
@@ -1000,12 +1000,10 @@ public:
 				goto ok;
 			}
 			else if (parser.startsWith("RSM")) {
-				parser.println(parser.toString());
 				print_dec_s32(parser, motor_stp_delay_minimum[motor].value);
 				goto done;
 			}
 			else if (parser.startsWith("SM")) {
-				parser.println(parser.toString());
 				parser.advanceTail(2);
 				us16 temp = parser.toVariant().toInt();
 				noInterrupts(); //stepper_timer_int_enable = 0;
@@ -1014,12 +1012,10 @@ public:
 				goto ok;
 			}
 			else if (parser.startsWith("RSA")) {
-				parser.println(parser.toString());
 				print_dec_s32(parser, motor_accel_mod.value);
 				goto done;
 			}
 			else if (parser.startsWith("SA?")) {
-				parser.println(parser.toString());
 				parser.advanceTail(2);
 				us16 temp = parser.toVariant().toInt();
 				noInterrupts(); //stepper_timer_int_enable = 0;
@@ -1028,19 +1024,16 @@ public:
 				goto ok;
 			}
 			else if (parser.startsWith("SO")) {
-				parser.println(parser.toString());
 				motor_fKeepOn[motor] = false;
-				stepper_powered(motor, false);
+				stepper_powered(motor, motor_fKeepOn[motor]);
 				goto ok;
 			}
 			else if (parser.startsWith("SP")) {
-				parser.println(parser.toString());
 				motor_fKeepOn[motor] = true;
-				stepper_powered(motor, true);
+				stepper_powered(motor, motor_fKeepOn[motor]);
 				goto ok;
 			}
 			else if (parser.startsWith("SF?")) {
-				parser.println(parser.toString());
 				parser.advanceTail(2);
 				s32 value = parser.toVariant().toInt();
 				print_us32(parser, value);
@@ -1053,12 +1046,10 @@ public:
 				goto done;
 			}
 			else if (parser.startsWith("RX")) {
-				parser.println(parser.toString());
 				print_byte(parser, readDirectionSign(motor));
 				goto done;
 			}
 			else if (parser.startsWith("RC")) {
-				parser.println(parser.toString());
 				s32 value;
 				noInterrupts(); //stepper_timer_int_enable = 0;
 				value = motor_position[motor];
@@ -1067,7 +1058,6 @@ public:
 				goto done;
 			}
 			else if (parser.startsWith("RD")) {
-				parser.println(parser.toString());
 				s32 value;
 				noInterrupts(); //stepper_timer_int_enable = 0;
 				value = motor_destination[motor];
@@ -1076,7 +1066,6 @@ public:
 				goto done;
 			}
 			else if (parser.startsWith("RT")) {
-				parser.println(parser.toString());
 				s32 des;
 				s32 pos;
 				noInterrupts(); //stepper_timer_int_enable = 0;
@@ -1087,7 +1076,6 @@ public:
 				goto done;
 			}
 			else if (parser.startsWith("RLS")) {
-				parser.println(parser.toString());
 				if(  stepper_limit_minus_get(motor) ) {
 					parser.print("-");
 				}
@@ -1104,7 +1092,6 @@ public:
 				goto done;
 			}
 			else if (parser.startsWith("STATUS")) {
-				parser.println(parser.toString());
 				us32 temp32;
 				noInterrupts(); //stepper_timer_int_enable = 0;
 				temp32 = (us32)motor_position[motor];
