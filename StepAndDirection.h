@@ -11,7 +11,7 @@ typedef bool us1;	// for some reason typedef for bool or boolean do not work
 
 // Stepper Motors
 // stepper count is used to let the stepper code know how many controllers to implement
-#define MOTOR_COUNT				3
+#define MOTOR_COUNT				4
 #define MOTOR_ENABLE			1 // todo: 3 Define this if you want to use the motor enable pin (untested on pic32)
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -40,14 +40,20 @@ const uint32_t step_interrupt_period = delay_25us;
 #define step3_dir           c2p1
 #define step3_enable        c2p2
 #define step3_sleep	        c2p3
+#define step4_stp           c3p0
+#define step4_dir           c3p1
+#define step4_enable        c3p2
+#define step4_sleep	        c3p3
 
 // INPUTS: +/- direction limit switches
-#define step1_limit_minus   c3p0
-#define step2_limit_minus   c3p1
-#define step3_limit_minus   c3p2
-#define step1_limit_plus    c3p0
-#define step2_limit_plus    c3p1
-#define step3_limit_plus    c3p2
+#define step1_limit_minus   c4p0
+#define step2_limit_minus   c4p1
+#define step3_limit_minus   c4p2
+#define step4_limit_minus   c4p3
+#define step1_limit_plus    c4p0
+#define step2_limit_plus    c4p1
+#define step3_limit_plus    c4p2
+#define step4_limit_plus    c4p3
 
 us1 stepper_timer_enable = false; // this used to be to turn PIC18 timer interrupt on and off
 
@@ -298,6 +304,24 @@ void step_motor(us8 motor) {
 			}
 			break;
 #endif
+#if MOTOR_COUNT >= 4
+		case 3:
+			if (digitalRead(step4_dir) == (bool)motor_forward) {
+				if( ~digitalRead(step4_limit_plus) ) {
+					digitalWrite(step4_stp, 0);
+					motor_position[motor]++;
+					digitalWrite(step4_stp, 1);
+				}
+			}
+			else {
+				if( ~digitalRead(step4_limit_minus) ) {
+					digitalWrite(step4_stp, 0);
+					motor_position[motor]--;
+					digitalWrite(step4_stp, 1);
+				}
+			}
+			break;
+#endif
 	}
 }
 uint32_t stepper_interrupt(uint32_t currentTime) {
@@ -406,6 +430,13 @@ public:
 		pinMode(step3_sleep,OUTPUT);
 		digitalWrite(step3_sleep,HIGH);
 #endif
+#if MOTOR_COUNT >= 4
+		pinMode(step4_stp,OUTPUT);
+		pinMode(step4_dir,OUTPUT);
+		pinMode(step4_enable,OUTPUT);
+		pinMode(step4_sleep,OUTPUT);
+		digitalWrite(step4_sleep,HIGH);
+#endif
 	    attachCoreTimerService(stepper_interrupt);
     }
 	void print_ok(TokenParser &parser, us8 status) {
@@ -455,6 +486,11 @@ public:
 				digitalWrite(step3_enable, !powered);
 				break;
 #endif
+#if MOTOR_COUNT >= 4
+			case 3:
+				digitalWrite(step4_enable, !powered);
+				break;
+#endif
 		}
 #endif
 	}
@@ -475,6 +511,11 @@ public:
 				digitalWrite(step3_dir,direction); // step3_dir = direction;
 				break;
 	#endif
+	#if MOTOR_COUNT >= 4
+			case 3:
+				digitalWrite(step4_dir,direction); // step3_dir = direction;
+				break;
+	#endif
 		}
 	}
 	motor_direction stepper_direction_get(us8 motor) {
@@ -493,6 +534,11 @@ public:
 	#if MOTOR_COUNT >= 3
 			case 2:
 				direction = (motor_direction)digitalRead(step3_dir);
+				break;
+	#endif
+	#if MOTOR_COUNT >= 4
+			case 3:
+				direction = (motor_direction)digitalRead(step4_dir);
 				break;
 	#endif
 		}
@@ -516,6 +562,11 @@ public:
 				limit = (us1)digitalRead(step3_limit_minus);
 				break;
 	#endif
+	#if MOTOR_COUNT >= 4
+			case 3:
+				limit = (us1)digitalRead(step4_limit_minus);
+				break;
+	#endif
 		}
 		return !limit;
 	}
@@ -535,6 +586,11 @@ public:
 	#if MOTOR_COUNT >= 3
 			case 2:
 				limit = (us1)digitalRead(step3_limit_plus);
+				break;
+	#endif
+	#if MOTOR_COUNT >= 4
+			case 3:
+				limit = (us1)digitalRead(step4_limit_plus);
 				break;
 	#endif
 		}
