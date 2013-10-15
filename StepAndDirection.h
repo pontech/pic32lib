@@ -25,7 +25,7 @@ const uint32_t delay_250us = CORE_TICK_RATE/1000*250;
 const uint32_t delay_250ms = CORE_TICK_RATE/1000*250000;
 
 // Change this number to control the fundamental unit of step delay
-const uint32_t step_interrupt_period = delay_25us;
+const uint32_t step_interrupt_period = delay_50us;
 
 // OUTPUT: Step, Direction and Enable pins
 #define step1_stp           c0p0
