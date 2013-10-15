@@ -75,88 +75,88 @@ public:
     }
     // todo: add bounds checking
     bool startsWith(const char* string, bool caseSensitive = false) {
-		us8 i = 0;
-		us8 index = tail;
+        us8 i = 0;
+        us8 index = tail;
 #ifdef DEBUG_TOKEN_PARSER
-		print(string);
-		print("=");
-		print(toString());
-		print("=>");
+        print(string);
+        print("=");
+        print(toString());
+        print("=>");
 #endif
-		while(string[i] != 0) {
-			if(string[i] != '?') {
-				if(!characterCompare(buffer[index], string[i], caseSensitive)) {
+        while(string[i] != 0) {
+            if(string[i] != '?') {
+                if(!characterCompare(buffer[index], string[i], caseSensitive)) {
 #ifdef DEBUG_TOKEN_PARSER
-					println("false");
+                    println("false");
 #endif
-					return false;
-				}
-			}
-			i++;
-			index++;
-		}
+                    return false;
+                }
+            }
+            i++;
+            index++;
+        }
 #ifdef DEBUG_TOKEN_PARSER
-		println("true");
+        println("true");
 #endif
-		return true;
+        return true;
     }
     // Compares an entire string for equality
     bool compare(const char* string, bool caseSensitive = false) {
-		us8 i = 0;
-		us8 index = tail;
+        us8 i = 0;
+        us8 index = tail;
 #ifdef DEBUG_TOKEN_PARSER
-		print(string);
-		print("=");
-		print(toString());
-		print("=>");
+        print(string);
+        print("=");
+        print(toString());
+        print("=>");
 #endif
-		while(string[i] != 0) {
-			if(string[i] != '?') {
-				if(!characterCompare(buffer[index], string[i], caseSensitive)) {
+        while(string[i] != 0) {
+            if(string[i] != '?') {
+                if(!characterCompare(buffer[index], string[i], caseSensitive)) {
 #ifdef DEBUG_TOKEN_PARSER
-					println("false");
+                    println("false");
 #endif
-					return false;
-				}
-			}
-			i++;
-			index++;
-		}
+                    return false;
+                }
+            }
+            i++;
+            index++;
+        }
 
-		if((head - tail) != i) {
+        if((head - tail) != i) {
 #ifdef DEBUG_TOKEN_PARSER
-			println("false (head - tail) != i");
+            println("false (head - tail) != i");
 #endif
-			return false;
-		}
+            return false;
+        }
 #ifdef DEBUG_TOKEN_PARSER
-		println("true");
+        println("true");
 #endif
-		return true;
+        return true;
     }
     // todo: enforce consecutive characters
     bool contains(const char* string, bool caseSensitive = false) {
         us8 i = 0;
         us8 index = tail;
 #ifdef DEBUG_TOKEN_PARSER
-		print(string);
-		print("=");
-		print(toString());
-		print("=>");
+        print(string);
+        print("=");
+        print(toString());
+        print("=>");
 #endif
         while(string[i] != 0 && index < length) {
             if(characterCompare(buffer[index++], string[i], caseSensitive)) {
                 i++;
                 if(string[i] == 0) {
 #ifdef DEBUG_TOKEN_PARSER
-					println("true");
+                    println("true");
 #endif
                     return true;
                 }
             }
         }
 #ifdef DEBUG_TOKEN_PARSER
-		println("false");
+        println("false");
 #endif
         return false;
     }
@@ -173,7 +173,7 @@ public:
         }
         return String();
     }
-	    bool nextToken(s8 index = -1) {
+        bool nextToken(s8 index = -1) {
         if((0 < index) && (index < length)) {
             head = index;
         }
@@ -243,7 +243,7 @@ public:
         return c & 0xf;
     }
     Variant toVariant() {
-        return Variant(toString());
+        return Variant::fromString(toString());
     }
     void print(const String &string) {
         myStream->print(string);

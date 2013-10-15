@@ -6,15 +6,142 @@
 
 class Variant {
 public:
-    Variant(String string)
+    Variant(s32 newValue = 0, s8 newExp = 0) {
+        value = newValue;
+        exp = newExp;
+    }
+
+    Variant(const char *text) {
+        Variant var = fromString(text);
+        this->value = var.value;
+        this->exp = var.exp;
+    }
+
+    bool operator==(const Variant &other)
     {
+        if(this->value == other.value && this->exp == other.exp) {
+            return true;
+        }
+        return false;
+    }
+
+    bool operator<(const Variant &other)
+    {
+        if(this->exp < other.exp) {
+            return true;
+        }
+        else if(this->exp == other.exp) {
+            if(this->value < other.value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool operator<=(const Variant &other)
+    {
+        if(*this == other) {
+            return true;
+        }
+        return *this < other;
+    }
+
+    bool operator>(const Variant &other)
+    {
+        if(this->exp > other.exp) {
+            return true;
+        }
+        else if(this->exp == other.exp) {
+            if(this->value > other.value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool operator>=(const Variant &other)
+    {
+        if(*this == other) {
+            return true;
+        }
+        return *this > other;
+    }
+
+    Variant operator+(const Variant &other) const {
+        Variant result;
+
+        if(abs(this->exp - other.exp) < 10) {
+            result.exp = this->exp < other.exp ? this->exp : other.exp;
+            result.value = this->value * pow(10, this->exp - result.exp);
+            result.value += other.value * pow(10, other.exp - result.exp);
+        }
+        return result;
+    }
+
+    Variant operator+=(const Variant &other) const {
+        return *this + other;
+    }
+
+    Variant operator-(const Variant &other) const {
+        Variant result;
+
+        if(abs(this->exp - other.exp) < 10) {
+            result.exp = this->exp < other.exp ? this->exp : other.exp;
+            result.value = this->value * pow(10, this->exp - result.exp);
+            result.value -= other.value * pow(10, other.exp - result.exp);
+        }
+        return result;
+    }
+
+    Variant operator-=(const Variant &other) const {
+        return *this - other;
+    }
+
+    Variant operator*(const Variant &other) const {
+        Variant result = *this;
+        if(result.value != 0 && other.value != 0) {
+            result.value *= other.value;
+            result.exp += other.exp;
+
+            while(result.value % 10 == 0) {
+                result.value /= 10;
+                result.exp++;
+            }
+        }
+        return result;
+    }
+
+    Variant operator*=(const Variant &other) const {
+        return *this * other;
+    }
+
+    Variant operator/(const Variant &other) const {
+        Variant result = *this;
+        if(result.value != 0 && other.value != 0) {
+            result.value *= 1000;
+            result.value /= other.value;
+            result.exp -= other.exp + 3;
+
+            while(result.value % 10 == 0) {
+                result.value /= 10;
+                result.exp++;
+            }
+        }
+        return result;
+    }
+
+    Variant operator/=(const Variant &other) const {
+        return *this / other;
+    }
+
+    static Variant fromString(String string)
+    {
+        Variant var;
+
         string = string.toLowerCase();
         us8 index = 0;
         us8 length = string.length();
         bool negative = false;
-
-        value = 0;
-        exp = 0;
 
         if(string.startsWith("-")) {
 //            Serial.println("Is Negative");
@@ -26,9 +153,10 @@ public:
 //            Serial.println("Is Hex");
             index += 2;
             do {
-                value <<= 4;
-                value |= hexCharToNibble(string.charAt(index++));
-            } while(index < length);
+                var.value <<= 4;
+                var.value |= Variant::hexCharToNibble(string.charAt(index++));
+            }
+            while(index < length);
         }
         else if(string.startsWith("0b")) { // Binary
 //            Serial.println("Is Bin");
@@ -36,24 +164,21 @@ public:
         }
         else if(string.indexOf("e") != -1) { // Exp.Notation
 //            Serial.println("Is Exp.Notation");
+            int pos = string.indexOf("e", index);
+            var.value = (s32)(string.substring(index, pos).toInt());
+            pos++;
+            var.exp = (s8)(string.substring(pos, length).toInt());
         }
         else if(string.indexOf(".") != -1) { // Real Number
 //            Serial.println("Is Real");
-            s32 base = pow(10, (length - index - 2));
-            bool ad = false; // after decimal, of course...
-            while(index < length) {
-                us8 data = string.charAt(index++);
-                if(data == '.') {
-                    ad = true;
-                }
-                else {
-                    value += (data - 0x30) * base;
-                    base /= 10;
+            int pos = string.indexOf(".", index);
+            var.value = string.substring(index, pos).toInt();
 
-                    if(ad) {
-                        exp--;
-                    }
-                }
+            index = pos + 1;
+            while(index < length) {
+                var.value *= 10;
+                var.value += (string.charAt(index++) - 0x30);
+                var.exp--;
             }
         }
         else { // Whole Number
@@ -62,20 +187,22 @@ public:
             while(index < length) {
 //                Serial.println(string.charAt(index) - 0x30, DEC);
                 base = pow(10, length - index - 1);
-                value += (string.charAt(index) - 0x30) * base;
+                var.value += (string.charAt(index) - 0x30) * base;
                 index++;
             }
         }
 
         if(negative) {
-            value *= -1;
+            var.value *= -1;
         }
 
-        if(value == 0) {
+        if(var.value == 0) {
             if(string == "true") {
-                value = 1;
+                var.value = 1;
             }
         }
+
+        return var;
     }
 
     bool toBool()
@@ -91,12 +218,16 @@ public:
     float toFloat()
     {
         float temp = value;
-        temp *= pow(10, exp);
-        return temp;
+        return temp *= pow(10, exp);
+    }
+
+    String toString()
+    {
+        return String(value, DEC) + "e" + String(exp, DEC);
     }
 
 private:
-//    if(parser.compare("test")) {
+//    if(parser.compare("test1")) {
 //      Serial.print("Whole: ");
 //      Serial.println(Variant("1234").toInt());
 //      Serial.println(Variant("4321").toInt());
@@ -118,7 +249,58 @@ private:
 //      Serial.println(Variant("false").toBool());
 //    }
 
-    us8 hexCharToNibble(us8 c)
+//    if(parser.compare("test2")) {
+//        parser.nextToken();
+//        Variant left = Variant::fromString(parser.toString());
+
+//        parser.nextToken();
+//        Variant right = Variant::fromString(parser.toString());
+
+//        Serial.print(left.toString());
+//        Serial.print(" vs ");
+//        Serial.println(right.toString());
+
+//        Serial.print("left == right = ");
+//        Serial.println(left == right);
+
+//        Variant temp;
+
+//        temp = left * right;
+//        Serial.print("left * right = ");
+//        Serial.println(temp.toString());
+
+//        temp = left / right;
+//        Serial.print("left / right = ");
+//        Serial.println(temp.toString());
+
+//        temp = left + right;
+//        Serial.print("left + right = ");
+//        Serial.println(temp.toString());
+
+//        temp = left - right;
+//        Serial.print("left - right = ");
+//        Serial.println(temp.toString());
+
+//        Serial.print("left < right = ");
+//        Serial.println(left < right);
+
+//        Serial.print("left <= right = ");
+//        Serial.println(left <= right);
+
+//        Serial.print("left > right = ");
+//        Serial.println(left > right);
+
+//        Serial.print("left >= right = ");
+//        Serial.println(left >= right);
+
+//        Serial.println("left < 100e3");
+//        Serial.println(left < "100e3");
+
+//        Serial.println("right < 100e3");
+//        Serial.println(right < "100e3");
+//    }
+
+    static inline us8 hexCharToNibble(us8 c)
     {
         if('0' <= c && c <= '9') {
             c -= 0x30;
