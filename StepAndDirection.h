@@ -12,28 +12,34 @@ typedef bool us1;	// for some reason typedef for bool or boolean do not work
 // Stepper Motors
 // stepper count is used to let the stepper code know how many controllers to implement
 #define MOTOR_COUNT				3
-//#define MOTOR_ENABLE			1 // todo: 3 Define this if you want to use the motor enable pin (untested on pic32)
+#define MOTOR_ENABLE			1 // todo: 3 Define this if you want to use the motor enable pin (untested on pic32)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // PIC32 / chipKIT constants
 //////////////////////////////////////////////////////////////////////////////////////////
 const uint32_t delay_5us = CORE_TICK_RATE/1000*5;
+const uint32_t delay_25us = CORE_TICK_RATE/1000*25;
+const uint32_t delay_50us = CORE_TICK_RATE/1000*50;
+const uint32_t delay_125us = CORE_TICK_RATE/1000*125;
 const uint32_t delay_250us = CORE_TICK_RATE/1000*250;
 const uint32_t delay_250ms = CORE_TICK_RATE/1000*250000;
 
 // Change this number to control the fundamental unit of step delay
-const uint32_t step_interrupt_period = delay_250us;
+const uint32_t step_interrupt_period = delay_25us;
 
 // OUTPUT: Step, Direction and Enable pins
-#define step1_stp           led2
-#define step1_dir           led1
+#define step1_stp           c0p0
+#define step1_dir           c0p1
 #define step1_enable        c0p2
+#define step1_sleep	        c0p3
 #define step2_stp           c1p0
 #define step2_dir           c1p1
 #define step2_enable        c1p2
+#define step2_sleep	        c1p3
 #define step3_stp           c2p0
 #define step3_dir           c2p1
 #define step3_enable        c2p2
+#define step3_sleep	        c2p3
 
 // INPUTS: +/- direction limit switches
 #define step1_limit_minus   c3p0
@@ -231,7 +237,7 @@ volatile uus16 motor_stp_delay_minimum[MOTOR_COUNT] = {0xFFC0,0xFFC0,0xFFC0}; //
 volatile uus16 motor_stp_delay_target[MOTOR_COUNT]  = {0xFFC0,0xFFC0,0xFFC0}; // 1 second for 2000 steps
 volatile uus16 motor_stp_delay_current[MOTOR_COUNT] = {0xFFC0,0xFFC0,0xFFC0}; // 1 second for 2000 steps
 volatile uus16 motor_stp_delay_counter[MOTOR_COUNT] = {0x0000,0x0000,0x0000}; // 1 second for 2000 steps
-volatile uus16 motor_stp_delay[MOTOR_COUNT]         = {0xFFF8,0xFFF8,0xFFF8};
+volatile uus16 motor_stp_delay[MOTOR_COUNT]         = {0xFFFF,0xFFFF,0xFFFF};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // This code cannot be generalized into an array due to reading and setting specific pins per motor
@@ -379,6 +385,27 @@ uint32_t stepper_interrupt(uint32_t currentTime) {
 class StepAndDirection {
 public:
     StepAndDirection() {
+#if MOTOR_COUNT >= 1
+		pinMode(step1_stp,OUTPUT);
+		pinMode(step1_dir,OUTPUT);
+		pinMode(step1_enable,OUTPUT);
+		pinMode(step1_sleep,OUTPUT);
+		digitalWrite(step1_sleep,HIGH);
+#endif
+#if MOTOR_COUNT >= 2
+		pinMode(step2_stp,OUTPUT);
+		pinMode(step2_dir,OUTPUT);
+		pinMode(step2_enable,OUTPUT);
+		pinMode(step2_sleep,OUTPUT);
+		digitalWrite(step2_sleep,HIGH);
+#endif
+#if MOTOR_COUNT >= 3
+		pinMode(step3_stp,OUTPUT);
+		pinMode(step3_dir,OUTPUT);
+		pinMode(step3_enable,OUTPUT);
+		pinMode(step3_sleep,OUTPUT);
+		digitalWrite(step3_sleep,HIGH);
+#endif
 	    attachCoreTimerService(stepper_interrupt);
     }
 	void print_ok(TokenParser &parser, us8 status) {
@@ -415,17 +442,17 @@ public:
 		switch(motor) {
 #if MOTOR_COUNT >= 1
 			case 0:
-				digitalWrite(step1_enable, powered);
+				digitalWrite(step1_enable, !powered);
 				break;
 #endif
 #if MOTOR_COUNT >= 2
 			case 1:
-				digitalWrite(step2_enable, powered);
+				digitalWrite(step2_enable, !powered);
 				break;
 #endif
 #if MOTOR_COUNT >= 3
 			case 2:
-				digitalWrite(step3_enable, powered);
+				digitalWrite(step3_enable, !powered);
 				break;
 #endif
 		}
@@ -939,7 +966,7 @@ public:
 				goto done;
 			}
             parser.nextToken();
-			//parser.println(parser.toString());
+			parser.println(parser.toString());
 			if (parser.startsWith("V?")) {
 				parser.print("STP100 V2.3");
 				goto done;
@@ -993,9 +1020,10 @@ public:
 			}
 			else if (parser.startsWith("SD?")) {
 				parser.advanceTail(2);
-				us16 temp = parser.toVariant().toInt();
+				us32 temp = parser.toVariant().toInt();
+				print_dec_s32(parser, temp);
 				noInterrupts(); //stepper_timer_int_enable = 0;
-				motor_stp_delay[motor].value = temp;
+				motor_stp_delay[motor].value = (us16)temp;
 				interrupts(); //stepper_timer_int_enable = 1;
 				goto ok;
 			}
