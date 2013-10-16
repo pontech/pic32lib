@@ -25,6 +25,14 @@ public:
         return false;
     }
 
+    bool operator!=(const Variant &other)
+    {
+        if(this->value != other.value || this->exp != other.exp) {
+            return true;
+        }
+        return false;
+    }
+
     bool operator<(const Variant &other)
     {
         if(this->exp < other.exp) {
@@ -78,10 +86,6 @@ public:
         return result;
     }
 
-    Variant operator+=(const Variant &other) const {
-        return *this + other;
-    }
-
     Variant operator-(const Variant &other) const {
         Variant result;
 
@@ -91,10 +95,6 @@ public:
             result.value -= other.value * pow(10, other.exp - result.exp);
         }
         return result;
-    }
-
-    Variant operator-=(const Variant &other) const {
-        return *this - other;
     }
 
     Variant operator*(const Variant &other) const {
@@ -111,11 +111,7 @@ public:
         return result;
     }
 
-    Variant operator*=(const Variant &other) const {
-        return *this * other;
-    }
-
-    Variant operator/(const Variant &other) const {
+    Variant operator/(Variant &other) {
         Variant result = *this;
         if(result.value != 0 && other.value != 0) {
             result.value *= 1000;
@@ -130,8 +126,34 @@ public:
         return result;
     }
 
-    Variant operator/=(const Variant &other) const {
-        return *this / other;
+    Variant operator=(Variant &other) {
+        this->value = other.value;
+        this->exp = other.exp;
+        return *this;
+    }
+
+    Variant operator+=(Variant &other) {
+        Variant result = *this + other;
+        *this = result;
+        return *this;
+    }
+
+    Variant operator-=(Variant &other) {
+        Variant result = *this - other;
+        *this = result;
+        return *this;
+    }
+
+    Variant operator*=(Variant &other) {
+        Variant result = *this * other;
+        *this = result;
+        return *this;
+    }
+
+    Variant operator/=(Variant &other) {
+        Variant result = *this / other;
+        *this = result;
+        return *this;
     }
 
     static Variant fromString(String string)
@@ -263,21 +285,28 @@ private:
 //        Serial.print("left == right = ");
 //        Serial.println(left == right);
 
+//        Serial.print("left != right = ");
+//        Serial.println(left != right);
+
 //        Variant temp;
 
-//        temp = left * right;
+//        temp = left;
+//        temp *= right;
 //        Serial.print("left * right = ");
 //        Serial.println(temp.toString());
 
-//        temp = left / right;
+//        temp = left;
+//        temp /= right;
 //        Serial.print("left / right = ");
 //        Serial.println(temp.toString());
 
-//        temp = left + right;
+//        temp = left;
+//        temp += right;
 //        Serial.print("left + right = ");
 //        Serial.println(temp.toString());
 
-//        temp = left - right;
+//        temp = left;
+//        temp -= right;
 //        Serial.print("left - right = ");
 //        Serial.println(temp.toString());
 
