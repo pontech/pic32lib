@@ -35,13 +35,24 @@ public:
 
     bool operator<(const Variant &other)
     {
-        if(this->exp < other.exp) {
+        if(this->value != other.value || this->exp != other.exp) {
             return true;
         }
-        else if(this->exp == other.exp) {
-            if(this->value < other.value) {
-                return true;
-            }
+        return false;
+    }
+
+    bool operator<(const Variant &other)
+    {
+        int minimum = this->exp;
+        if(minimum < other.exp) {
+            minimum = other.exp;
+        }
+
+        s32 temp1 = this->value * pow(10, this->exp - minimum);
+        s32 temp2 = other.value * pow(10, other.exp - minimum);
+
+        if(temp1 < temp2) {
+            return true;
         }
         return false;
     }
@@ -56,13 +67,16 @@ public:
 
     bool operator>(const Variant &other)
     {
-        if(this->exp > other.exp) {
-            return true;
+        int minimum = this->exp;
+        if(minimum < other.exp) {
+            minimum = other.exp;
         }
-        else if(this->exp == other.exp) {
-            if(this->value > other.value) {
-                return true;
-            }
+
+        s32 temp1 = this->value * pow(10, this->exp - minimum);
+        s32 temp2 = other.value * pow(10, other.exp - minimum);
+
+        if(temp1 > temp2) {
+            return true;
         }
         return false;
     }
@@ -75,7 +89,7 @@ public:
         return *this > other;
     }
 
-    Variant operator+(const Variant &other) const {
+    Variant operator+(Variant other) {
         Variant result;
 
         if(abs(this->exp - other.exp) < 10) {
@@ -83,21 +97,41 @@ public:
             result.value = this->value * pow(10, this->exp - result.exp);
             result.value += other.value * pow(10, other.exp - result.exp);
         }
+
+        while(result.value % 10 == 0) {
+            result.value /= 10;
+            result.exp++;
+        }
         return result;
     }
 
-    Variant operator-(const Variant &other) const {
+    Variant operator-(Variant other) {
         Variant result;
+
+        if(*this == other) {
+            return result;
+        }
 
         if(abs(this->exp - other.exp) < 10) {
             result.exp = this->exp < other.exp ? this->exp : other.exp;
             result.value = this->value * pow(10, this->exp - result.exp);
             result.value -= other.value * pow(10, other.exp - result.exp);
         }
+
+        if(result.value == 0) {
+            result.exp = 0;
+            result.value = 0;
+            return result;
+        }
+
+        while(result.value % 10 == 0) {
+            result.value /= 10;
+            result.exp++;
+        }
         return result;
     }
 
-    Variant operator*(const Variant &other) const {
+    Variant operator*(Variant other) {
         Variant result = *this;
         if(result.value != 0 && other.value != 0) {
             result.value *= other.value;
@@ -111,7 +145,7 @@ public:
         return result;
     }
 
-    Variant operator/(Variant &other) {
+    Variant operator/(Variant other) {
         Variant result = *this;
         if(result.value != 0 && other.value != 0) {
             result.value *= 1000;
@@ -126,31 +160,31 @@ public:
         return result;
     }
 
-    Variant operator=(Variant &other) {
+    Variant operator=(Variant other) {
         this->value = other.value;
         this->exp = other.exp;
         return *this;
     }
 
-    Variant operator+=(Variant &other) {
+    Variant operator+=(Variant other) {
         Variant result = *this + other;
         *this = result;
         return *this;
     }
 
-    Variant operator-=(Variant &other) {
+    Variant operator-=(Variant other) {
         Variant result = *this - other;
         *this = result;
         return *this;
     }
 
-    Variant operator*=(Variant &other) {
+    Variant operator*=(Variant other) {
         Variant result = *this * other;
         *this = result;
         return *this;
     }
 
-    Variant operator/=(Variant &other) {
+    Variant operator/=(Variant other) {
         Variant result = *this / other;
         *this = result;
         return *this;
@@ -190,6 +224,13 @@ public:
             var.value = (s32)(string.substring(index, pos).toInt());
             pos++;
             var.exp = (s8)(string.substring(pos, length).toInt());
+
+            if(var.value != 0) {
+                while(var.value % 10 == 0) {
+                    var.value /= 10;
+                    var.exp++;
+                }
+            }
         }
         else if(string.indexOf(".") != -1) { // Real Number
 //            Serial.println("Is Real");
@@ -234,12 +275,19 @@ public:
 
     s32 toInt()
     {
-        return value;
+        s32 temp = value;
+        return temp *= pow(10, exp);
     }
 
     float toFloat()
     {
         float temp = value;
+        return temp *= pow(10, exp);
+    }
+
+    double toDouble()
+    {
+        double temp = value;
         return temp *= pow(10, exp);
     }
 
