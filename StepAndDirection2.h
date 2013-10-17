@@ -7,6 +7,14 @@
 
 typedef bool us1;	// for some reason typedef for bool or boolean do not work
 
+const uint32_t delay_5us   = CORE_TICK_RATE/1000*5;
+const uint32_t delay_25us  = CORE_TICK_RATE/1000*25;
+const uint32_t delay_50us  = CORE_TICK_RATE/1000*50;
+const uint32_t delay_125us = CORE_TICK_RATE/1000*125;
+const uint32_t delay_250us = CORE_TICK_RATE/1000*250;
+const uint32_t delay_1ms   = CORE_TICK_RATE/1000*1000;
+const uint32_t delay_250ms = CORE_TICK_RATE/1000*250000;
+
 class StepAndDirection2 {
 public:
     typedef struct {
@@ -16,8 +24,19 @@ public:
         int currentSkip;
     } Vector;
 
-    StepAndDirection2() {
-        interruptPeriod = (uint32_t)(CORE_TICK_RATE / 1000 * 1000 / 2); // 1ms
+    StepAndDirection2(us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep) {
+		StepAndDirection2::pin_step = pin_step;
+		StepAndDirection2::pin_direction = pin_direction;
+		StepAndDirection2::pin_enable = pin_enable;
+		StepAndDirection2::pin_sleep = pin_sleep;
+		
+		pinMode(pin_step,OUTPUT);
+		pinMode(pin_direction,OUTPUT);
+		pinMode(pin_enable,OUTPUT);
+		pinMode(pin_sleep,OUTPUT);
+		digitalWrite(pin_sleep,HIGH);
+		
+        interruptPeriod = delay_250ms;
     }
 
     uint32_t interrupt(uint32_t currentTime) {
@@ -29,11 +48,11 @@ public:
                 vector.currentSkip = vector.skip;
 
                 // step
-                us1 temp = digitalRead(c1p0);
+                us1 temp = digitalRead(pin_step);
                 if(temp) {
                     vector.steps--;
                 }
-                digitalWrite(c1p0, !temp);
+                digitalWrite(pin_step, !temp);
             }
         }
 
@@ -61,6 +80,11 @@ public:
     }
 
 private:
+	us8 pin_step;
+	us8 pin_direction;
+	us8 pin_enable;
+	us8 pin_sleep;
+
     Variant timeBase;
     uint32_t interruptPeriod;
     Vector vector;
