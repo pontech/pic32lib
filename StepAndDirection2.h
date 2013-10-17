@@ -5,6 +5,7 @@
 #include "Core.h"
 #include "TokenParser.h"
 
+#define array_base_type 0
 typedef bool us1;	// for some reason typedef for bool or boolean do not work
 
 const uint32_t delay_5us   = CORE_TICK_RATE/1000*5;
@@ -24,7 +25,8 @@ public:
         int currentSkip;
     } Vector;
 
-    StepAndDirection2(us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep) {
+    StepAndDirection2(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep) {
+		StepAndDirection2::motor = motor;
 		StepAndDirection2::pin_step = pin_step;
 		StepAndDirection2::pin_direction = pin_direction;
 		StepAndDirection2::pin_enable = pin_enable;
@@ -35,8 +37,9 @@ public:
 		pinMode(pin_enable,OUTPUT);
 		pinMode(pin_sleep,OUTPUT);
 		digitalWrite(pin_sleep,HIGH);
+		digitalWrite(pin_enable,LOW);
 		
-        interruptPeriod = delay_250ms;
+        interruptPeriod = delay_1ms;
     }
 
     uint32_t interrupt(uint32_t currentTime) {
@@ -49,11 +52,15 @@ public:
 
                 // step
                 us1 temp = digitalRead(pin_step);
+                digitalWrite(pin_step, !temp);
                 if(temp) {
                     vector.steps--;
                 }
-                digitalWrite(pin_step, !temp);
-            }
+
+				//digitalWrite(pin_step, 0);
+				//motor_position[motor]++;
+				//digitalWrite(pin_step, 1);
+			}
         }
 
         return (currentTime + interruptPeriod);
@@ -61,9 +68,15 @@ public:
 
     void command(TokenParser &parser)
     {
-        if(parser.compare("stp")) {
+		if(parser.startsWith("stp?")) {
+			parser.save();
+			parser.advanceTail(3);
+			if( motor != parser.toVariant().toInt() - array_base_type) {
+				parser.restore();
+				goto done;
+			}
+			
             parser.nextToken();
-
             if(parser.compare("vector")) {
                 vector.direction = 0;
                 vector.currentSkip = 0;
@@ -77,9 +90,12 @@ public:
                 Serial.println("OK");
             }
         }
+		done:
+			;
     }
 
 private:
+	us8 motor;
 	us8 pin_step;
 	us8 pin_direction;
 	us8 pin_enable;
