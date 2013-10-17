@@ -4,6 +4,8 @@
 #include <WProgram.h>
 #include "Core.h"
 #include "TokenParser.h"
+#include "CircleBuffer.h"
+#include "Vector.h"
 
 #define array_base_type 0
 typedef bool us1;	// for some reason typedef for bool or boolean do not work
@@ -18,12 +20,6 @@ const uint32_t delay_250ms = CORE_TICK_RATE/1000*250000;
 
 class StepAndDirection2 {
 public:
-    typedef struct {
-        us1 direction;
-        int steps;
-        int skip;
-        int currentSkip;
-    } Vector;
 
     StepAndDirection2(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep) {
 		StepAndDirection2::motor = motor;
@@ -40,10 +36,24 @@ public:
 		digitalWrite(pin_enable,LOW);
 		
         interruptPeriod = delay_1ms;
+		flag = false;
     }
 
     uint32_t interrupt(uint32_t currentTime) {
-        if(vector.steps > 0) {
+        if(vector.steps<=0 & vector.currentSkip<=0 & flag) {
+			if(!buffer.isEmpty()){
+				Serial.println("Next");
+				vector = buffer.pop();
+				Serial.print(vector.steps);
+				Serial.print(" ");
+				Serial.println(vector.skip);
+				if(buffer.isEmpty()){
+					flag = false;
+					Serial.println(buffer.isEmpty());
+				}
+			}
+        }
+		if(vector.steps > 0 || vector.currentSkip > 0) {
             if(vector.currentSkip > 0) {
                 vector.currentSkip--;
             }
@@ -87,9 +97,24 @@ public:
                 parser.nextToken();
                 vector.skip = parser.toVariant().toInt();
 
-                Serial.println("OK");
+                Serial.println("OK Vector");
             }
-        }
+			if(parser.compare("lock")) {
+				parser.nextToken();
+				int amount = parser.toVariant().toInt();
+				for(int i = 0; i < amount; i++){
+					Vector temp;
+					parser.nextToken();
+					temp.steps = parser.toVariant().toInt();
+
+					parser.nextToken();
+					temp.skip = parser.toVariant().toInt();
+					buffer.push(temp);
+				}
+				flag = true;
+				Serial.println("OK Lock");
+			}
+		}
 		done:
 			;
     }
@@ -104,6 +129,8 @@ private:
     Variant timeBase;
     uint32_t interruptPeriod;
     Vector vector;
+	bool flag;
+	CircleBuffer buffer;
 };
 
 #endif // STEPANDDIRECTION2_H
