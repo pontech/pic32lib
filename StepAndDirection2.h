@@ -11,6 +11,7 @@
 typedef bool us1;	// for some reason typedef for bool or boolean do not work
 
 const uint32_t delay_5us   = CORE_TICK_RATE/1000*5;
+const uint32_t delay_10us  = CORE_TICK_RATE/1000*10;
 const uint32_t delay_25us  = CORE_TICK_RATE/1000*25;
 const uint32_t delay_50us  = CORE_TICK_RATE/1000*50;
 const uint32_t delay_125us = CORE_TICK_RATE/1000*125;
@@ -27,6 +28,7 @@ public:
 		StepAndDirection2::pin_direction = pin_direction;
 		StepAndDirection2::pin_enable = pin_enable;
 		StepAndDirection2::pin_sleep = pin_sleep;
+		motor_position = 0;
 		
 		pinMode(pin_step,OUTPUT);
 		pinMode(pin_direction,OUTPUT);
@@ -35,8 +37,9 @@ public:
 		digitalWrite(pin_sleep,HIGH);
 		digitalWrite(pin_enable,LOW);
 		
-        interruptPeriod = delay_1ms;
+        interruptPeriod = delay_5us;
 		flag = false;
+		topside = false;
     }
 
     uint32_t interrupt(uint32_t currentTime) {
@@ -57,20 +60,30 @@ public:
             if(vector.currentSkip > 0) {
                 vector.currentSkip--;
             }
-            else {
+            else{ //if(!topside){
                 vector.currentSkip = vector.skip;
 
                 // step
-                us1 temp = digitalRead(pin_step);
-                digitalWrite(pin_step, !temp);
+                //us1 temp = digitalRead(pin_step);
+                digitalWrite(pin_step, 1);
+//				topside = true;
+				us1 temp = digitalRead(pin_step);
+				motor_position++;
+				//digitalWrite(pin_step, 0);
                 if(temp) {
                     vector.steps--;
                 }
+				digitalWrite(pin_step, 0);
 
 				//digitalWrite(pin_step, 0);
 				//motor_position[motor]++;
 				//digitalWrite(pin_step, 1);
 			}
+//			else
+//			{
+//				digitalWrite(pin_step, 0);
+//				topside = false;
+//			}
         }
 
         return (currentTime + interruptPeriod);
@@ -100,6 +113,10 @@ public:
                 Serial.println("OK Vector");
             }
 			if(parser.compare("lock")) {
+				flag = false;
+				Serial.println("OK Lock");
+			}
+			if(parser.compare("specific")) {
 				parser.nextToken();
 				int amount = parser.toVariant().toInt();
 				for(int i = 0; i < amount; i++){
@@ -111,8 +128,89 @@ public:
 					temp.skip = parser.toVariant().toInt();
 					buffer.push(temp);
 				}
+				Serial.println("OK Specific");
+			}
+			if(parser.compare("create")) {
+				parser.nextToken();
+				int start = parser.toVariant().toInt();
+				parser.nextToken();
+				int stop = parser.toVariant().toInt();
+				parser.nextToken();
+				int numsteps = parser.toVariant().toInt();
+				parser.nextToken();
+				int stepheight = parser.toVariant().toInt();
+				Serial.println((start - stop)/stepheight);
+				if((start - stop) > 0) {
+					for(int i = 0; i <= (start - stop)/stepheight; i++){
+						Vector temp;
+						temp.steps = numsteps;
+						temp.skip = start-((stepheight)*(i));
+						buffer.push(temp);
+					}
+				}
+				else if((stop - start) > 0) {
+					for(int i = 0; i <= (stop - start)/stepheight; i++){
+						Vector temp;
+						temp.steps = numsteps;
+						temp.skip = start+((stepheight)*(i));
+						buffer.push(temp);
+					}
+				}
+				//flag = true;
+				Serial.println("OK Create");
+			}
+			if(parser.compare("trapezoidal")) {
+				flag = false;
+				parser.nextToken();
+				int start = parser.toVariant().toInt();
+				parser.nextToken();
+				int stop = parser.toVariant().toInt();
+				parser.nextToken();
+				int numsteps = parser.toVariant().toInt();
+				parser.nextToken();
+				int stepheight = parser.toVariant().toInt();
+				Serial.println((start - stop)/stepheight);
+				if((start - stop) > 0) {
+					for(int i = 0; i <= (start - stop)/stepheight; i++){
+						Vector temp;
+						temp.steps = numsteps;
+						temp.skip = start-((stepheight)*(i));
+						buffer.push(temp);
+					}
+				}
+				parser.nextToken();
+				int amount = parser.toVariant().toInt();
+				for(int i = 0; i < amount; i++){
+					Vector temp;
+					parser.nextToken();
+					temp.steps = parser.toVariant().toInt();
+
+					parser.nextToken();
+					temp.skip = parser.toVariant().toInt();
+					buffer.push(temp);
+				}
+				parser.nextToken();
+				start = parser.toVariant().toInt();
+				parser.nextToken();
+				stop = parser.toVariant().toInt();
+				parser.nextToken();
+				numsteps = parser.toVariant().toInt();
+				parser.nextToken();
+				stepheight = parser.toVariant().toInt();
+				if((stop - start) > 0) {
+					for(int i = 0; i <= (stop - start)/stepheight; i++){
+						Vector temp;
+						temp.steps = numsteps;
+						temp.skip = start+((stepheight)*(i));
+						buffer.push(temp);
+					}
+				}
 				flag = true;
-				Serial.println("OK Lock");
+				Serial.println("OK Trapezoidal");
+			}
+			if(parser.compare("unlock")) {
+				flag = true;
+				Serial.println("OK Unlock");
 			}
 		}
 		done:
@@ -125,11 +223,13 @@ private:
 	us8 pin_direction;
 	us8 pin_enable;
 	us8 pin_sleep;
+	us32 motor_position;
 
     Variant timeBase;
     uint32_t interruptPeriod;
     Vector vector;
 	bool flag;
+	bool topside;
 	CircleBuffer buffer;
 };
 
