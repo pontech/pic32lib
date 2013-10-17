@@ -35,14 +35,6 @@ public:
 
     bool operator<(const Variant &other)
     {
-        if(this->value != other.value || this->exp != other.exp) {
-            return true;
-        }
-        return false;
-    }
-
-    bool operator<(const Variant &other)
-    {
         int minimum = this->exp;
         if(minimum < other.exp) {
             minimum = other.exp;
