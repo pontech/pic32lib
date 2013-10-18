@@ -16,7 +16,7 @@ public:
         //contents = (Vector *) malloc (sizeof (Vector) * size);
     }
 
-    ~CircleBuffer ()
+    ~CircleBuffer()
     {
         //free(contents);
         //contents = NULL;
@@ -25,59 +25,59 @@ public:
         tail = 0;
     }
 
-    int isFull ()
+    int isFull()
     {
-        if((tail+1)%size == head){
+        if((tail + 1) % size == head) {
             return true;
         }
-        else{
+        else {
             return false;
         }
     }
 
     int isEmpty()
     {
-        if(tail == head){
+        if(tail == head) {
             return true;
         }
-        else{
+        else {
             return false;
         }
     }
 
-    int push (const Vector i)
+    int push(const Vector &v)
     {
-        if(!isFull()){
-            contents[tail] = i;
+        if(!isFull()) {
+            contents[tail] = v;
             tail = (tail + 1) % size;
             return 0;
         }
         return -1;
     }
 
-    Vector pop ()
+    Vector pop()
     {
         Vector elem = contents[head];
         head = (head + 1) % size;
         return elem;
     }
 
-    Vector next ()
+    Vector next()
     {
         Vector elem = contents[current];
-        if(head+tail > size) {
-            current = (current + 1) % (size-head + tail);
+        if(head + tail > size) {
+            current = (current + 1) % (size - head + tail);
         }
         else {
-            current = (current + 1) % (head-tail);
+            current = (current + 1) % (head - tail);
         }
         return elem;
     }
 
     bool isAvailable(int i)
     {
-        for(int j = 0; j <= i; j++){
-            if((tail+1)%size == head){
+        for(int j = 0; j <= i; j++) {
+            if((tail + 1) % size == head) {
                 return false;
             }
         }

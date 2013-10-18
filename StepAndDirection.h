@@ -13,7 +13,6 @@ typedef bool us1;	// for some reason typedef for bool or boolean do not work
 // todo: control direction polarity when creating vectors
 class StepAndDirection {
 public:
-
     StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep) {
         StepAndDirection::motor = motor;
         StepAndDirection::pin_step = pin_step;
@@ -25,9 +24,9 @@ public:
         pinMode(pin_direction, OUTPUT);
         pinMode(pin_enable, OUTPUT);
         pinMode(pin_sleep, OUTPUT);
-        digitalWrite(pin_sleep, HIGH);
-        digitalWrite(pin_enable, LOW);
-        digitalWrite(c3p4, HIGH); // 8x microstepping
+        digitalWrite(pin_enable, LOW); // 0 = enabled
+        digitalWrite(pin_sleep, LOW);  // 1 = enabled
+//        digitalWrite(c3p4, HIGH); // 8x microstepping
 //        digitalWrite(c1p4, LOW); // 16x microstepping
 
         motor_position = 0;
@@ -63,8 +62,56 @@ public:
         }
     }
 
-    void command(TokenParser &parser)
-    {
+    void stop() {
+        flag = false;
+    }
+
+    void moveTo(s32 units) {
+        Serial.print("moveTo: ");
+
+        Serial.println(units, DEC);
+        buffer.push(Vector(15, 30));
+        buffer.push(Vector(20, 20));
+        buffer.push(Vector(20, 10));
+        buffer.push(Vector(30, 5));
+        buffer.push(Vector(50, 1));
+
+        buffer.push(Vector(2930, 0));
+
+        buffer.push(Vector(50, 1));
+        buffer.push(Vector(30, 5));
+        buffer.push(Vector(20, 10));
+        buffer.push(Vector(20, 20));
+        buffer.push(Vector(15, 30));
+        flag = true;
+    }
+
+    void move(s32 units) {
+        Serial.print("move: ");
+        Serial.println(units, DEC);
+    }
+
+    bool isBusy() {
+        return (!buffer.isEmpty() && flag);
+    }
+
+    void setCurrentPosition(s32 position) {
+        motor_position = position;
+    }
+
+    void setMaxSpeed(Variant maxSpeed) {
+
+    }
+
+    void setAcceleration(Variant acceleration) {
+
+    }
+
+    void setEnabled(bool enabled) {
+        digitalWrite(pin_sleep, enabled);
+    }
+
+    void command(TokenParser &parser) {
         if(parser.startsWith("stp?")) {
             parser.save();
             parser.advanceTail(3);
@@ -203,7 +250,7 @@ private:
     us8 pin_direction;
     us8 pin_enable;
     us8 pin_sleep;
-    us32 motor_position;
+    s32 motor_position;
 
     bool flag;
     Vector vector;
