@@ -39,24 +39,33 @@ public:
 
     // todo: verify skip starts at 1
     void interrupt() {
-        if(vector.steps <= 0 && vector.currentSkip <= 0 && flag) {
+        if(vector.steps == 0 && vector.currentSkip <= 0 && flag) {
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
-                digitalWrite(pin_direction, vector.direction);
+				if( vector.steps > 0 )
+					digitalWrite(pin_direction, HIGH);
+				else
+					digitalWrite(pin_direction, LOW);
             }
             else {
                 flag = false;
             }
         }
-        if(vector.steps > 0 || vector.currentSkip > 0) {
+        if(vector.steps != 0 || vector.currentSkip > 0) {
             if(vector.currentSkip > 0) {
                 vector.currentSkip--;
             }
             else {
                 vector.currentSkip = vector.skip;
                 digitalWrite(pin_step, 1);
-                motor_position++;
-                vector.steps--;
+				if( vector.steps > 0 ) {
+					motor_position++;
+					vector.steps--;
+				}
+				else {
+					motor_position--;
+					vector.steps++;
+				}
                 digitalWrite(pin_step, 0);
             }
         }
@@ -66,10 +75,10 @@ public:
         flag = false;
     }
 
-    void moveTo(s32 units) {
-        Serial.print("moveTo: ");
+    void moveTo(TokenParser &parser, s32 units) {
+        parser.print("moveTo: ");
 
-        Serial.println(units, DEC);
+        parser.println(String(units, DEC));
         buffer.push(Vector(15, 30));
         buffer.push(Vector(20, 20));
         buffer.push(Vector(20, 10));
@@ -86,9 +95,9 @@ public:
         flag = true;
     }
 
-    void move(s32 units) {
-        Serial.print("move: ");
-        Serial.println(units, DEC);
+    void move(TokenParser &parser, s32 units) {
+        parser.print("move: ");
+        parser.println(String(units, DEC));
     }
 
     bool isBusy() {
@@ -124,21 +133,19 @@ public:
 
             if(parser.compare("lock")) {
                 flag = false;
-                Serial.println("OK Lock");
+                parser.println("OK Lock");
             }
-
-            if(parser.compare("unlock")) {
+            else if(parser.compare("unlock")) {
                 flag = true;
-                Serial.println("OK Unlock");
+                parser.println("OK Unlock");
             }
-
-            if(parser.compare("pairs")) {
+            else if(parser.compare("pairs")) {
                 for(int i = 0; i < buffer.size; i++) {
                     if(!parser.nextToken()) {
                         break;
                     }
                     String token = parser.toString();
-                    Serial.println(String(i, DEC) + ": " + token);
+                    parser.println(String(i, DEC) + ": " + token);
 
                     int index = token.indexOf(",");
 
@@ -148,10 +155,9 @@ public:
                     buffer.push(temp);
                 }
                 flag = true;
-                Serial.println("OK Pairs");
+                parser.println("OK Pairs");
             }
-
-            if(parser.compare("create")) {
+            else if(parser.compare("create")) {
                 parser.nextToken();
                 int start = parser.toVariant().toInt();
 
@@ -164,7 +170,7 @@ public:
                 parser.nextToken();
                 int stepheight = parser.toVariant().toInt();
 
-                Serial.println((start - stop)/stepheight);
+                parser.println((start - stop)/stepheight);
                 if((start - stop) > 0) {
                     for(int i = 0; i <= (start - stop)/stepheight; i++){
                         Vector temp;
@@ -182,10 +188,9 @@ public:
                     }
                 }
                 //flag = true;
-                Serial.println("OK Create");
+                parser.println("OK Create");
             }
-
-            if(parser.compare("trapezoidal")) {
+            else if(parser.compare("trapezoidal")) {
                 flag = false;
 
                 parser.nextToken();
@@ -200,7 +205,7 @@ public:
                 parser.nextToken();
                 int stepheight = parser.toVariant().toInt();
 
-                Serial.println((start - stop)/stepheight);
+                parser.println((start - stop)/stepheight);
                 if((start - stop) > 0) {
                     for(int i = 0; i <= (start - stop)/stepheight; i++){
                         Vector temp;
@@ -237,8 +242,23 @@ public:
                     }
                 }
                 flag = true;
-                Serial.println("OK Trapezoidal");
+                parser.println("OK Trapezoidal");
             }
+			else if(parser.compare("rcp")) {
+                parser.print(String(motor_position, DEC));
+                parser.print("\r\n");
+				goto done;
+            }
+			else if(parser.compare("moveto")) {
+			  parser.nextToken();
+			  s32 pos = parser.toVariant().toInt();
+			  parser.println(String(pos, DEC));
+			  moveTo(parser, pos);
+			}
+			else if(parser.compare("pow")) {
+			  Serial.println((pow(4,(1/2))));
+			}
+
         }
         done:
             ;

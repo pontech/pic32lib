@@ -1,6 +1,8 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
+#include "Core.h"
+
 class Vector {
 public:
     Vector()
@@ -9,16 +11,15 @@ public:
         skip = 0;
     }
 
-    Vector(int steps, int skip)
+    Vector(s32 steps, us32 skip)
     {
         Vector::steps = steps;
         Vector::skip = skip;
     }
 
-    bool direction;
-    int steps;
-    int skip;
-    int currentSkip;
+    s32 steps;
+    us32 skip;
+    us32 currentSkip;
 };
 
 #endif
