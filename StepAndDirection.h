@@ -256,7 +256,7 @@ public:
 			  moveTo(parser, pos);
 			}
 			else if(parser.compare("pow")) {
-			  Serial.println((pow(4,(1/2))));
+			  Serial.println((pow(4,0.5)));
 			}
 
         }
