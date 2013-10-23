@@ -9,6 +9,7 @@ public:
     Variant(s32 newValue = 0, s8 newExp = 0) {
         value = newValue;
         exp = newExp;
+        reduce(this);
     }
 
     Variant(const char *text) {
@@ -90,10 +91,7 @@ public:
             result.value += other.value * pow(10, other.exp - result.exp);
         }
 
-        while(result.value % 10 == 0) {
-            result.value /= 10;
-            result.exp++;
-        }
+        reduce(&result);
         return result;
     }
 
@@ -116,10 +114,7 @@ public:
             return result;
         }
 
-        while(result.value % 10 == 0) {
-            result.value /= 10;
-            result.exp++;
-        }
+        reduce(&result);
         return result;
     }
 
@@ -128,26 +123,20 @@ public:
         if(result.value != 0 && other.value != 0) {
             result.value *= other.value;
             result.exp += other.exp;
-
-            while(result.value % 10 == 0) {
-                result.value /= 10;
-                result.exp++;
-            }
+            reduce(&result);
         }
         return result;
     }
 
+    // todo: add dynamic precision
     Variant operator/(Variant other) {
         Variant result = *this;
         if(result.value != 0 && other.value != 0) {
-            result.value *= 1000;
+            int precision = 5;
+            result.value *= pow(10, precision);
             result.value /= other.value;
-            result.exp -= other.exp + 3;
-
-            while(result.value % 10 == 0) {
-                result.value /= 10;
-                result.exp++;
-            }
+            result.exp = result.exp - other.exp - precision;
+            reduce(&result);
         }
         return result;
     }
@@ -216,13 +205,7 @@ public:
             var.value = (s32)(string.substring(index, pos).toInt());
             pos++;
             var.exp = (s8)(string.substring(pos, length).toInt());
-
-            if(var.value != 0) {
-                while(var.value % 10 == 0) {
-                    var.value /= 10;
-                    var.exp++;
-                }
-            }
+            reduce(&var);
         }
         else if(string.indexOf(".") != -1) { // Real Number
 //            Serial.println("Is Real");
@@ -260,6 +243,28 @@ public:
         return var;
     }
 
+    static Variant fromFloat(float value, unsigned int precision = 3)
+    {
+        Variant result;
+        result.exp = -precision;
+        precision = pow(10, precision);
+        result.value = value * precision;
+
+        reduce(&result);
+        return result;
+    }
+
+    static Variant fromDouble(double value, unsigned int precision = 6)
+    {
+        Variant result;
+        result.exp = -precision;
+        precision = pow(10, precision);
+        result.value = value * precision;
+
+        reduce(&result);
+        return result;
+    }
+
     bool toBool()
     {
         return (value > 0) ? true : false;
@@ -290,25 +295,38 @@ public:
 
 private:
 //    if(parser.compare("test1")) {
-//      Serial.print("Whole: ");
-//      Serial.println(Variant("1234").toInt());
-//      Serial.println(Variant("4321").toInt());
+//        Serial.print("Whole: ");
+//        Serial.println(Variant("1234").toInt());
+//        Serial.println(Variant("4321").toInt());
 
-//      Serial.print("Hex: ");
-//      Serial.println(Variant("0x1234").toInt(), HEX);
-//      Serial.println(Variant("0x4321").toInt(), HEX);
+//        Serial.print("Hex: ");
+//        Serial.println(Variant("0x1234").toInt(), HEX);
+//        Serial.println(Variant("0x4321").toInt(), HEX);
 
-//      Serial.print("Real: ");
-//      Serial.println(Variant("1.234").toFloat());
-//      Serial.println(Variant("-432.1").toFloat());
+//        Serial.print("Real: ");
+//        Serial.println(Variant("1.234").toFloat());
+//        Serial.println(Variant("-432.1").toFloat());
 
-//      Serial.print("Binary: ");
-//      Serial.println(Variant("0b10101010").toInt());
-//      Serial.println(Variant("0b01010101").toInt());
+//        Serial.print("Binary: ");
+//        Serial.println(Variant("0b10101010").toInt());
+//        Serial.println(Variant("0b01010101").toInt());
 
-//      Serial.print("Bool: ");
-//      Serial.println(Variant("true").toBool());
-//      Serial.println(Variant("false").toBool());
+//        Serial.print("Bool: ");
+//        Serial.println(Variant("true").toBool());
+//        Serial.println(Variant("false").toBool());
+
+//        float temp1 = 1.23456;
+//        float temp2 = 12.3456;
+//        float temp3 = 123.456;
+
+//        Serial.println("temp1");
+//        Serial.println(Variant::fromFloat(temp1, 4).toString());
+
+//        Serial.println("temp2");
+//        Serial.println(Variant::fromFloat(temp2, 4).toString());
+
+//        Serial.println("temp3");
+//        Serial.println(Variant::fromFloat(temp3, 4).toString());
 //    }
 
 //    if(parser.compare("test2")) {
@@ -368,6 +386,16 @@ private:
 //        Serial.println("right < 100e3");
 //        Serial.println(right < "100e3");
 //    }
+
+    static inline void reduce(Variant *var)
+    {
+        if(var->value != 0) {
+            while((var->value % 10 == 0) || abs(var->value) >= 100000) {
+                var->value /= 10;
+                var->exp++;
+            }
+        }
+    }
 
     static inline us8 hexCharToNibble(us8 c)
     {
