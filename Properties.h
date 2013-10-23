@@ -34,7 +34,7 @@ public:
     Properties(us8 size = 10)
         : KeyValueTable(size)
     {
-        propertiesTable = (PropertiesTableDetail*)malloc(size * sizeof(PropertiesTableDetail));
+        //propertiesTable = (PropertiesTableDetail*)malloc(size * sizeof(PropertiesTableDetail));
 
         for(us8 i = 0; i < tableSize; i++) {
             propertiesTable[i].type = NullProperty;
@@ -315,7 +315,7 @@ public:
     }
 
 private:
-    PropertiesTableDetail *propertiesTable;
+    PropertiesTableDetail propertiesTable[24];
     fptr_string echoFunction;
     s8 batchMode;
     bool executingAction;

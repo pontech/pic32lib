@@ -19,7 +19,7 @@ class KeyValueTable {
 public:
     KeyValueTable(us8 size = 10)
     {
-        kvTable = (KeyValueTableDetail*)malloc(size * sizeof(KeyValueTableDetail));
+        //kvTable = (KeyValueTableDetail*)malloc(size * sizeof(KeyValueTableDetail));
         tableSize = size;
     }
 
@@ -167,7 +167,7 @@ public:
 
 private:
     us8 tableSize;
-    KeyValueTableDetail *kvTable;
+    KeyValueTableDetail kvTable[24];
 
     bool compare(String string, char* buffer, us8 maxLength)
     {
