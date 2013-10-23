@@ -12,6 +12,20 @@ public:
         reduce(this);
     }
 
+    Variant(float newValue, unsigned int precision = 3) {
+        exp = -precision;
+        precision = pow(10, precision);
+        value = newValue * precision;
+        reduce(this);
+    }
+
+    Variant(double newValue, unsigned int precision = 6) {
+        exp = -precision;
+        precision = pow(10, precision);
+        value = newValue * precision;
+        reduce(this);
+    }
+
     Variant(const char *text) {
         Variant var = fromString(text);
         this->value = var.value;
@@ -241,28 +255,6 @@ public:
         }
 
         return var;
-    }
-
-    static Variant fromFloat(float value, unsigned int precision = 3)
-    {
-        Variant result;
-        result.exp = -precision;
-        precision = pow(10, precision);
-        result.value = value * precision;
-
-        reduce(&result);
-        return result;
-    }
-
-    static Variant fromDouble(double value, unsigned int precision = 6)
-    {
-        Variant result;
-        result.exp = -precision;
-        precision = pow(10, precision);
-        result.value = value * precision;
-
-        reduce(&result);
-        return result;
     }
 
     bool toBool()

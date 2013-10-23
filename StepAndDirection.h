@@ -166,7 +166,7 @@ public:
         Variant prev;
         for(int i = 0; i <= points; i++) {
             int exp = -i + 5;
-            Variant base = Variant::fromFloat(1 + pow(coefficient, exp));
+            Variant base = (float)(1 + pow(coefficient, exp));
             Variant value(1, 0);
             value /= base;
 
@@ -208,7 +208,6 @@ public:
         buffer.push(flatVector);
 
         for(int i = points; i > 0; i--) {
-            accelSteps += vectors[i].steps;
             buffer.push(vectors[i]);
         }
 
