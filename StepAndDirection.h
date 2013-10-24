@@ -426,6 +426,14 @@ public:
                 parser.nextToken();
                 sigCoefficient = parser.toVariant().toFloat();
 
+                Serial.print("Sig: ");
+                Serial.print(sigLow.toString());
+                Serial.print(" ");
+                Serial.print(sigHigh.toString());
+                Serial.print(" ");
+                Serial.print(sigSteps.toString());
+                Serial.print(" ");
+                Serial.println(parser.toVariant().toString());
                 Serial.println("OK");
             }
             else if(parser.compare("units")) {
