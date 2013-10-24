@@ -7,6 +7,8 @@
 #include "CircleBuffer.h"
 #include "Vector.h"
 
+#define fast_io
+//#define debug_sigmoid
 #define array_base_type 0
 typedef bool us1;	// for some reason typedef for bool or boolean do not work
 
@@ -27,16 +29,22 @@ public:
         digitalWrite(pin_enable, HIGH); // 0 = enabled
         digitalWrite(pin_sleep, HIGH);  // 1 = enabled
 
+#ifdef fast_io
         stepPort = (p32_ioport *)portRegisters(digitalPinToPort(pin_step));
         stepBit = digitalPinToBitMask(pin_step);
 
         directionPort = (p32_ioport *)portRegisters(digitalPinToPort(pin_direction));
         directionBit = digitalPinToBitMask(pin_direction);
+#endif
 
         interruptPeriod = setTimeBase(Variant(250, -6));
         currentPosition = 0;
         currentSkip = 0;
-        stepsPerUnit = 1;
+
+        conversion_mx = 1;
+        conversion_b = 0;
+        conversion_p = 0;
+
         halt();
 
         // sigmoid defaults
@@ -53,12 +61,18 @@ public:
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
                 if(vector.steps > 0) {
-//                    directionPort->lat.set = directionBit;
+#ifdef fast_io
+                    directionPort->lat.set = directionBit;
+#else
                     digitalWrite(pin_direction, HIGH);
+#endif
                 }
                 else {
-//                    directionPort->lat.clr = directionBit;
+#ifdef fast_io
+                    directionPort->lat.clr = directionBit;
+#else
                     digitalWrite(pin_direction, LOW);
+#endif
                 }
             }
             else {
@@ -86,12 +100,18 @@ public:
                 if(ok) {
                     interruptPeriod = temp;
                     if(vector.steps > 0) {
-//                        directionPort->lat.set = directionBit;
+#ifdef fast_io
+                        directionPort->lat.set = directionBit;
+#else
                         digitalWrite(pin_direction, HIGH);
+#endif
                     }
                     else {
-//                        directionPort->lat.clr = directionBit;
+#ifdef fast_io
+                        directionPort->lat.clr = directionBit;
+#else
                         digitalWrite(pin_direction, LOW);
+#endif
                     }
                 }
                 else {
@@ -157,26 +177,28 @@ public:
             accelSteps *= Variant(-1, 0);
         }
 
-//        Serial.println("Begin: " + beginPeriod.toString() + " sec");
-//        Serial.println("End  : " + endPeriod.toString() + " sec");
+#ifdef debug_sigmoid
+        Serial.println("Begin: " + beginPeriod.toString() + " sec");
+        Serial.println("End  : " + endPeriod.toString() + " sec");
+#endif
 
         // =(1 / (1 + (coefficient ^ (-point + 5))))
-
         Vector vectors[points + 1];
         Variant prev;
         for(int i = 0; i <= points; i++) {
             int exp = -i + 5;
-            Variant base = (float)(1 + pow(coefficient, exp));
+            Variant base = Variant((float)(1 + pow(coefficient, exp)));
             Variant value(1, 0);
             value /= base;
 
-//            Serial.print(i);
-//            Serial.print(": ");
-//            Serial.print(base.toString());
-//            Serial.print("/");
-//            Serial.print(value.toString());
-//            Serial.print(" - ");
-
+#ifdef debug_sigmoid
+            Serial.print(i);
+            Serial.print(": ");
+            Serial.print(base.toString());
+            Serial.print("/");
+            Serial.print(value.toString());
+            Serial.print(" - ");
+#endif
             if(i == 0) {
                 vectors[i].steps = 0;
             }
@@ -185,11 +207,12 @@ public:
                 vectors[i].time = ((endPeriod * value) + (beginPeriod * (Variant(1, 0) - value)));
             }
 
-//            Serial.print(vectors[i].steps);
-//            Serial.print(", ");
-//            Serial.print(vectors[i].time.toString());
-//            Serial.println(" ");
-
+#ifdef debug_sigmoid
+            Serial.print(vectors[i].steps);
+            Serial.print(", ");
+            Serial.print(vectors[i].time.toString());
+            Serial.println(" ");
+#endif
             prev = value;
         }
 
@@ -201,9 +224,11 @@ public:
 
         Vector flatVector(steps - (totalSteps * 2), vectors[10].time); //endPeriod);
 
-//        Serial.print(flatVector.steps);
-//        Serial.print(", ");
-//        Serial.println(flatVector.time.toString());
+#ifdef debug_sigmoid
+        Serial.print(flatVector.steps);
+        Serial.print(", ");
+        Serial.println(flatVector.time.toString());
+#endif
 
         buffer.push(flatVector);
 
@@ -211,9 +236,11 @@ public:
             buffer.push(vectors[i]);
         }
 
-//        Serial.print("TotalSteps: ");
-//        Serial.println(totalSteps);
-//        Serial.println(vectors[points].time.toString());
+#ifdef debug_sigmoid
+        Serial.print("TotalSteps: ");
+        Serial.println(totalSteps);
+        Serial.println(vectors[points].time.toString());
+#endif
     }
 
     void start() {
@@ -230,49 +257,60 @@ public:
         flag = false;
     }
 
-    void setStepsPerUnit(us16 steps) {
-        if(steps > 0) {
-            stepsPerUnit = steps;
+    void setConversion(Variant mx, Variant b, us8 precision) {
+        if(mx != 0) {
+            conversion_mx = mx;
+            conversion_b = b;
+            conversion_p = pow(10, precision);
         }
     }
 
-    void chooseBestMove(s32 units) {
-        if(units == 0) {
+    Variant unitConversion(Variant units) {
+//        Serial.println("In:" + units.toString());
+        units *= conversion_p;
+        units *= conversion_mx;
+        units += conversion_b;
+//        Serial.println("Out:" + units.toString());
+        return units;
+    }
+
+    void chooseBestMove(s32 steps) {
+        if(steps == 0) {
             return;
         }
 
-        if(abs(units) >= (sigSteps.toInt() * 3)) {
-            modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient, units);
+        if(abs(steps) >= (sigSteps.toInt() * 2.5)) {
+            modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient, steps);
         }
         else {
             Variant period(1, 0);
             period /= sigLow;
-            buffer.push(Vector(units, period));
+            buffer.push(Vector(steps, period));
         }
         start();
     }
 
     // relative move
-    void move(TokenParser &parser, s32 units) {
-        units *= stepsPerUnit;
+    void move(Variant units) {
+        units = unitConversion(units);
 
-        parser.print(String(motor, DEC));
-        parser.print(" move: ");
-        parser.println(String(units, DEC));
+//        Serial.print(String(motor, DEC));
+//        Serial.print(" move: ");
+//        Serial.println(units.toString());
 
-        chooseBestMove(units);
+        chooseBestMove(units.toInt());
     }
 
     // absolute move
-    void moveTo(TokenParser &parser, s32 units) {
-        units *= stepsPerUnit;
+    void moveTo(Variant units) {
+        units = unitConversion(units);
         units -= currentPosition;
 
-        parser.print(String(motor, DEC));
-        parser.print(" moveTo: ");
-        parser.println(String(units, DEC));
+//        Serial.print(String(motor, DEC));
+//        Serial.print(" moveTo: ");
+//        Serial.println(units.toString());
 
-        chooseBestMove(units);
+        chooseBestMove(units.toInt());
     }
 
     bool isBusy() {
@@ -287,9 +325,9 @@ public:
 
     }
 
-    void setAcceleration(Variant acceleration) {
+//    void setAcceleration(Variant acceleration) {
 
-    }
+//    }
 
     void setEnabled(bool enabled) {
         digitalWrite(pin_enable, !enabled);
@@ -357,6 +395,7 @@ public:
                 Variant steps = parser.toVariant();
 
                 modifiedSigmoid(begin, end, accelSteps, c.toFloat(), steps.toInt());
+                start();
             }
             else if(parser.compare("scp")) {
                 parser.nextToken();
@@ -364,20 +403,15 @@ public:
             }
             else if(parser.compare("rcp")) {
                 parser.println(String(currentPosition, DEC) + " steps");
-                parser.println(String((currentPosition / stepsPerUnit), DEC) + " units");
+//                parser.println(String((currentPosition / stepsPerUnit), DEC) + " units");
             }
             else if(parser.compare("move")) {
                 parser.nextToken();
-                move(parser, parser.toVariant().toInt());
+                move(parser.toVariant());
             }
             else if(parser.compare("moveto")) {
                 parser.nextToken();
-                moveTo(parser, parser.toVariant().toInt());
-            }
-            else if(parser.compare("units")) {
-                parser.nextToken();
-                setStepsPerUnit(parser.toVariant().toInt());
-                Serial.println(String(stepsPerUnit, DEC));
+                moveTo(parser.toVariant());
             }
             else if(parser.compare("setsig")) {
                 parser.nextToken();
@@ -394,6 +428,20 @@ public:
 
                 Serial.println("OK");
             }
+            else if(parser.compare("units")) {
+                parser.nextToken();
+                Serial.println(unitConversion(parser.toVariant()).toString());
+            }
+            else if(parser.compare("conv")) {
+                parser.nextToken();
+                Variant mx = parser.toVariant();
+
+                parser.nextToken();
+                Variant b = parser.toVariant();
+
+                parser.nextToken();
+                setConversion(mx, b, parser.toVariant().toInt());
+            }
         }
     }
 
@@ -401,8 +449,12 @@ public:
 
 private:
     inline void step() {
-//        stepPort->lat.set = stepBit;
+#ifdef fast_io
+        stepPort->lat.set = stepBit;
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+#else
         digitalWrite(pin_step, HIGH);
+#endif
         if(vector.steps > 0 ) {
             currentPosition++;
             vector.steps--;
@@ -411,8 +463,11 @@ private:
             currentPosition--;
             vector.steps++;
         }
+#ifdef fast_io
+        stepPort->lat.clr = stepBit;
+#else
         digitalWrite(pin_step, LOW);
-//        stepPort->lat.clr = stepBit;
+#endif
     }
 
     us8 motor;
@@ -421,8 +476,13 @@ private:
     us8 pin_enable;
     us8 pin_sleep;
     s32 currentPosition;
-    us16 stepsPerUnit;
 
+    // conversion variables
+    Variant conversion_mx;
+    Variant conversion_b;
+    Variant conversion_p;
+
+#ifdef fast_io
     // step pin
     p32_ioport *stepPort;
     unsigned int stepBit;
@@ -430,6 +490,7 @@ private:
     // direction pin
     p32_ioport *directionPort;
     unsigned int directionBit;
+#endif
 
     // sigmoid related
     Variant sigLow;
