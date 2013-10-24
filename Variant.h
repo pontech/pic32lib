@@ -134,7 +134,11 @@ public:
 
     Variant operator*(Variant other) {
         Variant result = *this;
-        if(result.value != 0 && other.value != 0) {
+        if(result.value == 0 || other.value == 0) {
+            result.value = 0;
+            result.exp = 0;
+        }
+        else {
             result.value *= other.value;
             result.exp += other.exp;
             reduce(&result);
@@ -145,7 +149,11 @@ public:
     // todo: add dynamic precision
     Variant operator/(Variant other) {
         Variant result = *this;
-        if(result.value != 0 && other.value != 0) {
+        if(result.value == 0 || other.value == 0) {
+            result.value = 0;
+            result.exp = 0;
+        }
+        else {
             int precision = 5;
             result.value *= pow(10, precision);
             result.value /= other.value;

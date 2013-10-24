@@ -17,8 +17,10 @@ class StepAndDirection {
 public:
     StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep) {
         StepAndDirection::motor = motor;
+#ifndef fast_io
         StepAndDirection::pin_step = pin_step;
         StepAndDirection::pin_direction = pin_direction;
+#endif
         StepAndDirection::pin_enable = pin_enable;
         StepAndDirection::pin_sleep = pin_sleep;
 
@@ -134,15 +136,6 @@ public:
         }
     }
 
-    // Quick240 setTimeBase Profiling
-    // ~285us execution with const Variant declaration, 250, -6
-    // ~320us execution with string Variant declaration, "250e-6"
-    // ~285us during bounds checking using 2x string declaration's
-    // ~700ns during bounds checking using 2x const declaration's
-    // ~700ns const declaration, and *= operator
-    // Changed bounds checking to const declaration
-    // ~700ns execution with const, Variant(250, -6)
-    // ~700ns consumed by 2x digtalWrite's
     uint32_t setTimeBase(Variant milliseconds, bool *ok = 0) {
         if(milliseconds >= Variant(5, -6) && milliseconds <= Variant(1, 0)) {
             Variant var(1, 6);
@@ -257,7 +250,7 @@ public:
         flag = false;
     }
 
-    void setConversion(Variant mx, Variant b, us8 precision) {
+    void setConversion(Variant mx, Variant b, us8 precision = 0) {
         if(mx != 0) {
             conversion_mx = mx;
             conversion_b = b;
@@ -267,7 +260,7 @@ public:
 
     Variant unitConversion(Variant units) {
 //        Serial.println("In:" + units.toString());
-        units *= conversion_p;
+//        units *= conversion_p;
         units *= conversion_mx;
         units += conversion_b;
 //        Serial.println("Out:" + units.toString());
@@ -479,8 +472,6 @@ private:
     }
 
     us8 motor;
-    us8 pin_step;
-    us8 pin_direction;
     us8 pin_enable;
     us8 pin_sleep;
     s32 currentPosition;
@@ -498,6 +489,9 @@ private:
     // direction pin
     p32_ioport *directionPort;
     unsigned int directionBit;
+#else
+    us8 pin_step;
+    us8 pin_direction;
 #endif
 
     // sigmoid related
