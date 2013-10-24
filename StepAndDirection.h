@@ -37,6 +37,9 @@ public:
 
         directionPort = (p32_ioport *)portRegisters(digitalPinToPort(pin_direction));
         directionBit = digitalPinToBitMask(pin_direction);
+
+        homeSensorPort = 0;
+        homeSensorPolarity = false;
 #endif
 
         interruptPeriod = setTimeBase(Variant(250, -6));
@@ -59,7 +62,7 @@ public:
 
     // todo: verify skip starts at 1
     void sharedInterrupt(Variant timebase) {
-        if(vector.steps == 0 && currentSkip <= 0 && flag) {
+        if(vector.steps == 0 && currentSkip <= 0 && running) {
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
                 if(vector.steps > 0) {
@@ -78,7 +81,7 @@ public:
                 }
             }
             else {
-                flag = false;
+                running = false;
             }
         }
 
@@ -94,7 +97,7 @@ public:
     }
 
     void unsharedInterrupt() {
-        if(vector.steps == 0 && flag) {
+        if(vector.steps == 0 && running) {
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
                 bool ok;
@@ -122,12 +125,12 @@ public:
                     Serial.println(vector.time.toString());
                     vector.steps = 0;
                     vector.time = Variant();
-                    flag = false;
+                    running = false;
                 }
                 return;
             }
             else {
-                flag = false;
+                running = false;
             }
         }
 
@@ -239,15 +242,26 @@ public:
     void start() {
         vector.steps = 0;
         vector.time = Variant();
-        flag = true;
+        running = true;
     }
 
     void pause() {
-        flag = false;
+        running = false;
     }
 
     void halt() {
-        flag = false;
+        running = false;
+    }
+
+    void setHomeSensor(int pin, bool desiredState = false) {
+        if(pin == 0) {
+            homeSensorPort = 0;
+        }
+        else {
+            homeSensorPort = (p32_ioport *)portRegisters(digitalPinToPort(pin));
+            homeSensorBit = digitalPinToBitMask(pin);
+        }
+        homeSensorPolarity = desiredState;
     }
 
     void setConversion(Variant mx, Variant b, us8 precision = 0) {
@@ -307,7 +321,11 @@ public:
     }
 
     bool isBusy() {
-        return (!buffer.isEmpty() && flag);
+        return running;
+    }
+
+    bool isReady() {
+        return !running;
     }
 
     void setCurrentPosition(s32 position) {
@@ -449,8 +467,20 @@ public:
     uint32_t interruptPeriod;
 
 private:
+    inline bool readHomeSensor() {
+        if(homeSensorPort != 0) {
+            return (homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
+        }
+        return false;
+    }
+
     inline void step() {
 #ifdef fast_io
+        if(readHomeSensor()) {
+            halt();
+            return;
+        }
+
         stepPort->lat.set = stepBit;
         asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
 #else
@@ -489,6 +519,11 @@ private:
     // direction pin
     p32_ioport *directionPort;
     unsigned int directionBit;
+
+    // home sensor pin
+    p32_ioport *homeSensorPort;
+    unsigned int homeSensorBit;
+    bool homeSensorPolarity;
 #else
     us8 pin_step;
     us8 pin_direction;
@@ -500,7 +535,7 @@ private:
     Variant sigSteps;
     float sigCoefficient;
 
-    bool flag;
+    bool running;
     Vector vector;
     us32 currentSkip;
     CircleBuffer buffer;
