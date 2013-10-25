@@ -15,7 +15,7 @@ typedef bool us1;	// for some reason typedef for bool or boolean do not work
 // todo: control direction polarity when creating vectors
 class StepAndDirection {
 public:
-    StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep) {
+    StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep, us8 pin_ms2) {
         StepAndDirection::motor = motor;
 #ifndef fast_io
         StepAndDirection::pin_step = pin_step;
@@ -28,8 +28,10 @@ public:
         pinMode(pin_direction, OUTPUT);
         pinMode(pin_enable, OUTPUT);
         pinMode(pin_sleep, OUTPUT);
+        pinMode(pin_ms2, OUTPUT);
         digitalWrite(pin_enable, HIGH); // 0 = enabled
         digitalWrite(pin_sleep, HIGH);  // 1 = enabled
+        digitalWrite(pin_ms2, HIGH);  // 0 = full step, 1 = quarter step
 
 #ifdef fast_io
         stepPort = (p32_ioport *)portRegisters(digitalPinToPort(pin_step));
@@ -57,7 +59,7 @@ public:
     }
 
     StepAndDirection(us8 motor, us8 card) {
-        *this = StepAndDirection(motor, KardIO[card][0], KardIO[card][1], KardIO[card][2], KardIO[card][3]);
+        *this = StepAndDirection(motor, KardIO[card][0], KardIO[card][1], KardIO[card][2], KardIO[card][3], KardIO[card][4]);
     }
 
     // todo: verify skip starts at 1
@@ -260,6 +262,8 @@ public:
         else {
             homeSensorPort = (p32_ioport *)portRegisters(digitalPinToPort(pin));
             homeSensorBit = digitalPinToBitMask(pin);
+			Serial.println((us32)homeSensorPort, DEC);
+			Serial.println((us32)homeSensorBit , DEC);
         }
         homeSensorPolarity = desiredState;
     }
@@ -468,19 +472,20 @@ public:
 
 private:
     inline bool readHomeSensor() {
+        //return (bool)(homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
         if(homeSensorPort != 0) {
-            return (homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
+            return true;
+            //return (homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
         }
         return false;
     }
 
     inline void step() {
+		if(readHomeSensor()) {
+			halt();
+			return;
+		}
 #ifdef fast_io
-        if(readHomeSensor()) {
-            halt();
-            return;
-        }
-
         stepPort->lat.set = stepBit;
         asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
 #else
