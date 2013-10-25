@@ -475,25 +475,7 @@ public:
 private:
     inline bool readHomeSensor() {
         if(homeSensorPort != 0) {
-			//return true;
-			if( homeSensorPort->port.reg & homeSensorBit ) {
-				if( homeSensorPolarity ) {
-					Serial.println("home high");
-					return true;
-				}
-			}
-			else {
-				if( !homeSensorPolarity ) {
-					Serial.println("home low");
-					return true;
-				}
-			}
-
-			//if( homeSensorPolarity )
-			//	if( homeSensorPort->port.reg & homeSensorBit ) return true;
-			//else
-			//	if( !( homeSensorPort->port.reg & homeSensorBit ) ) return true;
-            //return (bool)(homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
+            return (bool)(homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
         }
         return false;
     }
