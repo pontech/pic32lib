@@ -136,7 +136,7 @@ public:
             }
         }
 
-        if(vector.steps != 0) {
+        if(vector.steps != 0 && running) {
             step();
         }
     }
@@ -253,19 +253,21 @@ public:
 
     void halt() {
         running = false;
+		buffer.clear();
     }
 
     void setHomeSensor(int pin, bool desiredState = false) {
         if(pin == 0) {
-            homeSensorPort = 0;
+            homeSensorPort = (p32_ioport *)0;
+            homeSensorBit  = 0;
         }
         else {
             homeSensorPort = (p32_ioport *)portRegisters(digitalPinToPort(pin));
             homeSensorBit = digitalPinToBitMask(pin);
-			Serial.println((us32)homeSensorPort, DEC);
-			Serial.println((us32)homeSensorBit , DEC);
         }
         homeSensorPolarity = desiredState;
+		Serial.println((us32)homeSensorPort, DEC);
+		Serial.println((us32)homeSensorBit , DEC);
     }
 
     void setConversion(Variant mx, Variant b, us8 precision = 0) {
@@ -472,10 +474,26 @@ public:
 
 private:
     inline bool readHomeSensor() {
-        //return (bool)(homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
         if(homeSensorPort != 0) {
-            return true;
-            //return (homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
+			//return true;
+			if( homeSensorPort->port.reg & homeSensorBit ) {
+				if( homeSensorPolarity ) {
+					Serial.println("home high");
+					return true;
+				}
+			}
+			else {
+				if( !homeSensorPolarity ) {
+					Serial.println("home low");
+					return true;
+				}
+			}
+
+			//if( homeSensorPolarity )
+			//	if( homeSensorPort->port.reg & homeSensorBit ) return true;
+			//else
+			//	if( !( homeSensorPort->port.reg & homeSensorBit ) ) return true;
+            //return (bool)(homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
         }
         return false;
     }

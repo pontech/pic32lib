@@ -11,8 +11,7 @@ public:
     CircleBuffer() //int bufferSize = 32)
     {
         size = 33; //bufferSize+1;
-        head = 0;
-        tail = 0;
+        clear();
         //contents = (Vector *) malloc (sizeof (Vector) * size);
     }
 
@@ -25,6 +24,12 @@ public:
         tail = 0;
     }
 
+	void clear()
+    {
+        head = 0;
+        tail = 0;
+    }
+	
     int isFull()
     {
         if((tail + 1) % size == head) {
