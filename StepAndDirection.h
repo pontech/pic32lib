@@ -272,10 +272,11 @@ public:
         else {
             homeSensorPort = (p32_ioport *)portRegisters(digitalPinToPort(pin));
             homeSensorBit = digitalPinToBitMask(pin);
+            previousState = (bool)(homeSensorPort->port.reg & homeSensorBit);
         }
         homeSensorPolarity = desiredState;
-        Serial.println((us32)homeSensorPort, DEC);
-        Serial.println((us32)homeSensorBit , DEC);
+//        Serial.println((us32)homeSensorPort, DEC);
+//        Serial.println((us32)homeSensorBit , DEC);
     }
 
     void setConversion(Variant mx, Variant b, us8 precision = 0) {
@@ -341,10 +342,10 @@ public:
 
         chooseBestMove(units.toInt());
     }
-	
-	void setConfig(StepConfig *temp) {
-		config = temp;
-	}
+
+    void setConfig(StepConfig *temp) {
+        config = temp;
+    }
 
     bool isBusy() {
         return running;
@@ -501,7 +502,20 @@ public:
 private:
     inline bool readHomeSensor() {
         if(homeSensorPort != 0) {
-            return (bool)(homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
+            bool input = (bool)(homeSensorPort->port.reg & homeSensorBit);
+            if(input == 0 && previousState != 0) {
+                previousState = 0;
+                if(!homeSensorPolarity) {
+                    return true;
+                }
+            }
+            else if(input == 1 && previousState != 1) {
+                previousState = 1;
+                if(homeSensorPolarity) {
+                    return true;
+                }
+            }
+//            return (bool)(homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
         }
         return false;
     }
@@ -573,6 +587,7 @@ private:
     float sigCoefficient;
 
     bool running;
+    bool previousState;
     Vector vector;
     us32 currentSkip;
     CircleBuffer buffer;
