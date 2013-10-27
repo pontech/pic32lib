@@ -8,7 +8,7 @@
 #include "Vector.h"
 
 #define fast_io
-//#define debug_sigmoid
+#define debug_sigmoid
 #define array_base_type 0
 typedef bool us1;	// for some reason typedef for bool or boolean do not work
 
@@ -87,7 +87,7 @@ public:
             }
         }
 
-        if(vector.steps != 0 || currentSkip > 0) {
+        if(vector.steps != 0 || currentSkip > 0 && running) {
             if(currentSkip > 0) {
                 currentSkip--;
             }
@@ -162,9 +162,11 @@ public:
     // stp0 test 5e3 30e3 300 3 3200
     // stp0 test 20e3 40e3 1000 4 32000 // 10 rps w/16x
     // stp0 test 18e3 28e3 1000 3.5 32000 // 17.5 rps w/8x
-    void modifiedSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient, s32 steps) {
+    void modifiedSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient, s32 steps, Variant move_time_s) {
         int points = 10;
 
+		Variant sigmoid_time(0, 0);
+		Variant total_time(0, 0);
         Variant beginPeriod(1, 0);
         beginPeriod /= begin;
 
@@ -203,12 +205,15 @@ public:
             else {
                 vectors[i].steps = ((value - prev) * accelSteps).toInt();
                 vectors[i].time = ((endPeriod * value) + (beginPeriod * (Variant(1, 0) - value)));
+				sigmoid_time = vectors[i].time * vectors[i].steps;
             }
 
 #ifdef debug_sigmoid
             Serial.print(vectors[i].steps);
             Serial.print(", ");
             Serial.print(vectors[i].time.toString());
+            Serial.print(", ");
+            Serial.print(sigmoid_time.toString());
             Serial.println(" ");
 #endif
             prev = value;
@@ -217,7 +222,6 @@ public:
         int totalSteps = 0;
         for(int i = 1; i <= points; i++) {
             totalSteps += vectors[i].steps;
-            buffer.push(vectors[i]);
         }
 
         Vector flatVector(steps - (totalSteps * 2), vectors[10].time); //endPeriod);
@@ -225,20 +229,45 @@ public:
 #ifdef debug_sigmoid
         Serial.print(flatVector.steps);
         Serial.print(", ");
-        Serial.println(flatVector.time.toString());
+        Serial.print(flatVector.time.toString());
 #endif
-
-        buffer.push(flatVector);
-
-        for(int i = points; i > 0; i--) {
-            buffer.push(vectors[i]);
-        }
+		sigmoid_time = sigmoid_time * 2;
+#ifdef debug_sigmoid
+		Serial.print(", ");
+		Serial.println(sigmoid_time.toString());
+#endif
+		total_time = sigmoid_time + (vectors[10].time * (steps - (totalSteps * 2)));
+#ifdef debug_sigmoid
+		// started work using integers for comparison -Jacob
+		//total_time *= 10000; 
+		//move_time_s *= 10000;
+		Serial.print(total_time.toString());
+		Serial.print(", ");
+		Serial.println(move_time_s.toString());
+		
+		if( total_time.toInt() > move_time_s.toInt() ) {
+			Serial.println("too slow");
+		}
+		else {
+			Serial.println("too fast");
+		}
+#endif
 
 #ifdef debug_sigmoid
         Serial.print("TotalSteps: ");
         Serial.println(totalSteps);
         Serial.println(vectors[points].time.toString());
 #endif
+
+		// push vectors
+        for(int i = 1; i <= points; i++) {
+            buffer.push(vectors[i]);
+        }
+        buffer.push(flatVector);
+        for(int i = points; i > 0; i--) {
+            buffer.push(vectors[i]);
+        }
+
     }
 
     void start() {
@@ -288,13 +317,13 @@ public:
         return units;
     }
 
-    void chooseBestMove(s32 steps) {
+    void chooseBestMove(s32 steps, Variant move_time_s) {
         if(steps == 0) {
             return;
         }
 
         if(abs(steps) >= (sigSteps.toInt() * 2.5)) {
-            modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient, steps);
+            modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient, steps, move_time_s);
         }
         else {
             Variant period(1, 0);
@@ -305,18 +334,18 @@ public:
     }
 
     // relative move
-    void move(Variant units) {
+    void move(Variant units, Variant move_time_s) {
         units = unitConversion(units);
 
 //        Serial.print(String(motor, DEC));
 //        Serial.print(" move: ");
 //        Serial.println(units.toString());
 
-        chooseBestMove(units.toInt());
+        chooseBestMove(units.toInt(), move_time_s);
     }
 
     // absolute move
-    void moveTo(Variant units) {
+    void moveTo(Variant units, Variant move_time_s) {
         units = unitConversion(units);
         units -= currentPosition;
 
@@ -324,7 +353,7 @@ public:
 //        Serial.print(" moveTo: ");
 //        Serial.println(units.toString());
 
-        chooseBestMove(units.toInt());
+        chooseBestMove(units.toInt(), move_time_s);
     }
 
     bool isBusy() {
@@ -349,6 +378,7 @@ public:
 
     void setEnabled(bool enabled) {
         digitalWrite(pin_enable, !enabled);
+        digitalWrite(pin_sleep ,  enabled);
     }
 
     void setSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient)
@@ -391,6 +421,7 @@ public:
             else if(parser.compare("enable")) {
                 parser.nextToken();
                 setEnabled(parser.toVariant().toBool());
+                parser.println("OK Enable");
             }
             else if(parser.compare("base")) {
                 parser.nextToken();
@@ -412,7 +443,10 @@ public:
                 parser.nextToken();
                 Variant steps = parser.toVariant();
 
-                modifiedSigmoid(begin, end, accelSteps, c.toFloat(), steps.toInt());
+                parser.nextToken();
+				Variant move_time_s = parser.toVariant();
+
+                modifiedSigmoid(begin, end, accelSteps, c.toFloat(), steps.toInt(), move_time_s);
                 start();
             }
             else if(parser.compare("scp")) {
@@ -425,11 +459,17 @@ public:
             }
             else if(parser.compare("move")) {
                 parser.nextToken();
-                move(parser.toVariant());
+				Variant steps = parser.toVariant();
+                parser.nextToken();
+				Variant move_time_s = parser.toVariant();
+                move(steps, move_time_s);
             }
             else if(parser.compare("moveto")) {
                 parser.nextToken();
-                moveTo(parser.toVariant());
+				Variant steps = parser.toVariant();
+                parser.nextToken();
+				Variant move_time_s = parser.toVariant();
+                moveTo(steps, move_time_s);
             }
             else if(parser.compare("setsig")) {
                 parser.nextToken();
