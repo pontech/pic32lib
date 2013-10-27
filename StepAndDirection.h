@@ -51,6 +51,9 @@ public:
         conversion_mx = 1;
         conversion_b = 0;
         conversion_p = 0;
+		
+		lowerLimit = -2147483648;
+		upperLimit = 2147483647;
 
         halt();
 
@@ -87,7 +90,7 @@ public:
             }
         }
 
-        if(vector.steps != 0 || currentSkip > 0) {
+        if(vector.steps != 0 || currentSkip > 0  && running) {
             if(currentSkip > 0) {
                 currentSkip--;
             }
@@ -240,6 +243,13 @@ public:
         Serial.println(vectors[points].time.toString());
 #endif
     }
+	
+	void setLimits(s32 lLimit, s32 uLimit){
+		if(lLimit < uLimit){
+			lowerLimit = unitConversion(lLimit).toInt();
+			upperLimit = unitConversion(uLimit).toInt();
+		}
+	}
 
     void start() {
         vector.steps = 0;
@@ -312,19 +322,22 @@ public:
 //        Serial.print(" move: ");
 //        Serial.println(units.toString());
 
-        chooseBestMove(units.toInt());
+        if(lowerLimit <= units.toInt()+currentPosition && units.toInt()+currentPosition <= upperLimit){
+			chooseBestMove(units.toInt());
+		}
     }
 
     // absolute move
     void moveTo(Variant units) {
         units = unitConversion(units);
         units -= currentPosition;
-
 //        Serial.print(String(motor, DEC));
 //        Serial.print(" moveTo: ");
 //        Serial.println(units.toString());
 
-        chooseBestMove(units.toInt());
+		if(lowerLimit <= units.toInt()+currentPosition && units.toInt()+currentPosition <= upperLimit){
+			chooseBestMove(units.toInt());
+		}
     }
 
     bool isBusy() {
@@ -524,6 +537,8 @@ private:
     us8 pin_enable;
     us8 pin_sleep;
     s32 currentPosition;
+	s32 lowerLimit;
+	s32 upperLimit;
 
     // conversion variables
     Variant conversion_mx;
