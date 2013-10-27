@@ -341,6 +341,10 @@ public:
 
         chooseBestMove(units.toInt());
     }
+	
+	void setConfig(StepConfig *temp) {
+		config = temp;
+	}
 
     bool isBusy() {
         return running;
