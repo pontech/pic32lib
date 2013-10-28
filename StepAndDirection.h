@@ -7,18 +7,78 @@
 #include "CircleBuffer.h"
 #include "Vector.h"
 
-#define fast_io
+
 //#define debug_sigmoid
 #define array_base_type 0
 typedef bool us1;	// for some reason typedef for bool or boolean do not work
 
-typedef struct {
+class StepConfig {
+    friend class StepAndDirection;
+
+public:
+    StepConfig() {
+        currentPosition = 0;
+        conversion_mx = 1;
+        conversion_b = 0;
+        conversion_p = 0;
+        limit_enabled = false;
+
+    }
+
+    s32 getCurrentPosition() {
+       return currentPosition;
+    }
+
+    void setCurrentPosition(s32 position) {
+        currentPosition = position;
+    }
+
+    void setConversion(Variant mx, Variant b, us8 precision = 0) {
+         if(mx != 0) {
+             conversion_mx = mx;
+             conversion_b = b;
+             conversion_p = pow(10, precision);
+         }
+     }
+
+    void setLimits(Variant min, Variant max) {
+        if(min != 0 && max != 0) {
+            limit_min = min;
+            limit_max = max;
+            limit_enabled = true;
+        }
+        else {
+            limit_enabled = false;
+        }
+    }
+
+    Variant unitConversion(Variant units) {
+        if(limit_enabled) {
+            if(units < limit_min || units > limit_max) {
+                return 0;
+            }
+        }
+//        Serial.println("In:" + units.toString());
+//        units *= conversion_p;
+        units *= conversion_mx;
+        units += conversion_b;
+        return units;
+    }
+
+private:
     s32 currentPosition;
+
     // conversion variables
     Variant conversion_mx;
     Variant conversion_b;
     Variant conversion_p;
-} StepConfig;
+
+    Variant speed_max;
+
+    bool limit_enabled;
+    Variant limit_min;
+    Variant limit_max;
+};
 
 // todo: control direction polarity when creating vectors
 class StepAndDirection {
@@ -52,13 +112,11 @@ public:
         homeSensorPolarity = false;
 #endif
 
-        interruptPeriod = setTimeBase(Variant(250, -6));
-//        currentPosition = 0;
-        currentSkip = 0;
+        defaultConfig = new StepConfig();
+        config = defaultConfig;
 
-//        conversion_mx = 1;
-//        conversion_b = 0;
-//        conversion_p = 0;
+        interruptPeriod = setTimeBase(Variant(250, -6));
+        currentSkip = 0;
 
         halt();
 
@@ -279,27 +337,6 @@ public:
 //        Serial.println((us32)homeSensorBit , DEC);
     }
 
-    void setConversion(Variant mx, Variant b, us8 precision = 0) {
-        if(config != 0) {
-            if(mx != 0) {
-                config->conversion_mx = mx;
-                config->conversion_b = b;
-                config->conversion_p = pow(10, precision);
-            }
-        }
-    }
-
-    Variant unitConversion(Variant units) {
-//        Serial.println("In:" + units.toString());
-        if(config != 0) {
-    //        units *= config->conversion_p;
-            units *= config->conversion_mx;
-            units += config->conversion_b;
-        }
-//        Serial.println("Out:" + units.toString());
-        return units;
-    }
-
     void chooseBestMove(s32 steps) {
         if(steps == 0) {
             return;
@@ -318,9 +355,7 @@ public:
 
     // relative move
     void move(Variant units) {
-        if(config != 0) {
-            units = unitConversion(units);
-        }
+        units = config->unitConversion(units);
 
 //        Serial.print(String(motor, DEC));
 //        Serial.print(" move: ");
@@ -331,10 +366,8 @@ public:
 
     // absolute move
     void moveTo(Variant units) {
-        if(config != 0) {
-            units = unitConversion(units);
-            units -= config->currentPosition;
-        }
+        units = config->unitConversion(units);
+        units -= config->getCurrentPosition();
 
 //        Serial.print(String(motor, DEC));
 //        Serial.print(" moveTo: ");
@@ -343,8 +376,17 @@ public:
         chooseBestMove(units.toInt());
     }
 
+    StepConfig* getDefaultConfig() {
+        return defaultConfig;
+    }
+
     void setConfig(StepConfig *temp) {
-        config = temp;
+        if(temp == 0) {
+            config = defaultConfig;
+        }
+        else {
+            config = temp;
+        }
     }
 
     bool isBusy() {
@@ -354,20 +396,6 @@ public:
     bool isReady() {
         return !running;
     }
-
-    void setCurrentPosition(s32 position) {
-        if(config != 0) {
-            config->currentPosition = position;
-        }
-    }
-
-    void setMaxSpeed(Variant maxSpeed) {
-
-    }
-
-//    void setAcceleration(Variant acceleration) {
-
-//    }
 
     void setEnabled(bool enabled) {
         digitalWrite(pin_enable, !enabled);
@@ -439,14 +467,11 @@ public:
             }
             else if(parser.compare("scp")) {
                 parser.nextToken();
-                if(config != 0) {
-                    setCurrentPosition(parser.toVariant().toInt());
-                }
+                config->setCurrentPosition(parser.toVariant().toInt());
             }
             else if(parser.compare("rcp")) {
                 if(config != 0) {
-                    parser.println(String(config->currentPosition, DEC) + " steps");
-    //                parser.println(String((config->currentPosition / stepsPerUnit), DEC) + " units");
+                    parser.println(String(config->getCurrentPosition(), DEC) + " steps");
                 }
             }
             else if(parser.compare("move")) {
@@ -482,18 +507,18 @@ public:
             }
             else if(parser.compare("units")) {
                 parser.nextToken();
-                Serial.println(unitConversion(parser.toVariant()).toString());
+                Serial.println(config->unitConversion(parser.toVariant()).toString());
             }
-//            else if(parser.compare("conv")) {
-//                parser.nextToken();
-//                Variant mx = parser.toVariant();
+            else if(parser.compare("conv")) {
+                parser.nextToken();
+                Variant mx = parser.toVariant();
 
-//                parser.nextToken();
-//                Variant b = parser.toVariant();
+                parser.nextToken();
+                Variant b = parser.toVariant();
 
-//                parser.nextToken();
-//                setConversion(mx, b, parser.toVariant().toInt());
-//            }
+                parser.nextToken();
+                config->setConversion(mx, b, parser.toVariant().toInt());
+            }
         }
     }
 
@@ -533,15 +558,11 @@ private:
 #endif
 
         if(vector.steps > 0 ) {
-            if(config != 0) {
-                config->currentPosition++;
-            }
+            config->currentPosition++;
             vector.steps--;
         }
         else {
-            if(config != 0) {
-                config->currentPosition--;
-            }
+            config->currentPosition--;
             vector.steps++;
         }
 #ifdef fast_io
@@ -555,12 +576,7 @@ private:
     us8 pin_enable;
     us8 pin_sleep;
     StepConfig *config;
-//    s32 currentPosition;
-
-//    // conversion variables
-//    Variant conversion_mx;
-//    Variant conversion_b;
-//    Variant conversion_p;
+    StepConfig *defaultConfig;
 
 #ifdef fast_io
     // step pin
