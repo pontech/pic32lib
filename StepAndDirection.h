@@ -7,8 +7,8 @@
 #include "CircleBuffer.h"
 #include "Vector.h"
 
-
-//#define debug_sigmoid
+#define fast_io
+#define debug_sigmoid
 #define array_base_type 0
 typedef bool us1;	// for some reason typedef for bool or boolean do not work
 
@@ -116,7 +116,6 @@ public:
         config = defaultConfig;
 
         interruptPeriod = setTimeBase(Variant(250, -6));
-        currentSkip = 0;
 
         halt();
 
@@ -130,48 +129,17 @@ public:
 
     // todo: verify skip starts at 1
     void sharedInterrupt(Variant timebase) {
-        if(vector.steps == 0 && currentSkip <= 0 && running) {
-            if(!buffer.isEmpty()) {
-                vector = buffer.pop();
-                if(vector.steps > 0) {
-#ifdef fast_io
-                    directionPort->lat.set = directionBit;
-#else
-                    digitalWrite(pin_direction, HIGH);
-#endif
-                }
-                else {
-#ifdef fast_io
-                    directionPort->lat.clr = directionBit;
-#else
-                    digitalWrite(pin_direction, LOW);
-#endif
-                }
-            }
-            else {
-                running = false;
-            }
-        }
+        static us32 skip = 0;
+        static us32 currentSkip = 0;
 
-        if(vector.steps != 0 || currentSkip > 0) {
-            if(currentSkip > 0) {
-                currentSkip--;
-            }
-            else {
-                currentSkip = (vector.time / timebase).toInt();
-                step();
-            }
-        }
-    }
+        if(running) {
+            if(vector.steps == 0 && currentSkip <= 0) {
+                if(!buffer.isEmpty()) {
+                    vector = buffer.pop();
 
-    void unsharedInterrupt() {
-        if(vector.steps == 0 && running) {
-            if(!buffer.isEmpty()) {
-                vector = buffer.pop();
-                bool ok;
-                uint32_t temp = setTimeBase(vector.time, &ok);
-                if(ok) {
-                    interruptPeriod = temp;
+                    skip = (vector.time / timebase).toInt();
+                    currentSkip = skip;
+
                     if(vector.steps > 0) {
 #ifdef fast_io
                         directionPort->lat.set = directionBit;
@@ -188,22 +156,67 @@ public:
                     }
                 }
                 else {
-                    Serial.println("Timebase Error");
-                    Serial.println(vector.steps);
-                    Serial.println(vector.time.toString());
-                    vector.steps = 0;
-                    vector.time = Variant();
-                    running = false;
+    //                running = false;
+                    halt();
                 }
-                return;
             }
-            else {
-                running = false;
+
+            if(vector.steps != 0 || currentSkip > 0) {
+                if(currentSkip > 0) {
+                    currentSkip--;
+                }
+                else {
+                    currentSkip = skip;
+                    step();
+                }
             }
         }
+    }
 
-        if(vector.steps != 0 && running) {
-            step();
+    void unsharedInterrupt() {
+        if(running) {
+            if(vector.steps == 0) {
+                if(!buffer.isEmpty()) {
+                    vector = buffer.pop();
+                    bool ok;
+                    uint32_t temp = setTimeBase(vector.time, &ok);
+                    if(ok) {
+                        interruptPeriod = temp;
+                        if(vector.steps > 0) {
+#ifdef fast_io
+                            directionPort->lat.set = directionBit;
+#else
+                            digitalWrite(pin_direction, HIGH);
+#endif
+                        }
+                        else {
+#ifdef fast_io
+                            directionPort->lat.clr = directionBit;
+#else
+                            digitalWrite(pin_direction, LOW);
+#endif
+                        }
+                    }
+                    else {
+                        Serial.println("Timebase Error");
+                        Serial.println(vector.steps);
+                        Serial.println(vector.time.toString());
+                        vector.steps = 0;
+                        vector.time = Variant();
+                        running = false;
+                        halt();
+                    }
+                    return;
+                }
+                else {
+//                    running = false;
+                    halt();
+                }
+            }
+
+            if(vector.steps != 0) {
+                step();
+            }
         }
     }
 
@@ -225,92 +238,134 @@ public:
         return 0;
     }
 
-    // stp0 test 5e3 30e3 300 3 3200
-    // stp0 test 20e3 40e3 1000 4 32000 // 10 rps w/16x
-    // stp0 test 18e3 28e3 1000 3.5 32000 // 17.5 rps w/8x
-    void modifiedSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient, s32 steps) {
+    void modifiedSigmoid(Variant begin_Hz, Variant end_Hz, Variant accelSteps, float coefficient, s32 steps, Variant move_time_s) {
         int points = 10;
+        int rounds = move_time_s == 0 ? 1 : 16;
 
-        Variant beginPeriod(1, 0);
-        beginPeriod /= begin;
-
-        Variant endPeriod(1, 0);
-        endPeriod /= end;
+        Variant totalSteps;
+        Variant totalTime;
 
         if(steps < 0) {
             accelSteps *= Variant(-1, 0);
         }
 
 #ifdef debug_sigmoid
-        Serial.println("Begin: " + beginPeriod.toString() + " sec");
-        Serial.println("End  : " + endPeriod.toString() + " sec");
+        Serial.println("Begin: " + begin_Hz.toString() + " sec");
+        Serial.println("End  : " + end_Hz.toString() + " sec");
 #endif
 
         // =(1 / (1 + (coefficient ^ (-point + 5))))
+        Vector flatVector;
         Vector vectors[points + 1];
         Variant prev;
-        for(int i = 0; i <= points; i++) {
-            int exp = -i + 5;
-            Variant base = Variant((float)(1 + pow(coefficient, exp)));
-            Variant value(1, 0);
-            value /= base;
+        Variant selected_Hz;
+
+        selected_Hz = begin_Hz;
+        selected_Hz += (end_Hz - begin_Hz) / 2;
+
+        for(int r = 0; r < rounds; r++) {
+            prev = 0;
+            totalSteps = 0;
+            totalTime = 0;
+
+            for(int i = 0; i <= points; i++) {
+                int exp = -i + 5;
+                Variant base = Variant((float)(1 + pow(coefficient, exp)));
+                Variant value(1, 0);
+                value /= base;
 
 #ifdef debug_sigmoid
-            Serial.print(i);
-            Serial.print(": ");
-            Serial.print(base.toString());
-            Serial.print("/");
-            Serial.print(value.toString());
-            Serial.print(" - ");
+                Serial.print(i);
+                Serial.print(": ");
+                Serial.print(base.toString());
+                Serial.print("/");
+                Serial.print(value.toString());
 #endif
-            if(i == 0) {
-                vectors[i].steps = 0;
+                if(i == 0) {
+                    vectors[i].steps = 0;
+                }
+                else {
+                    Variant temp1(1, 0);
+                    temp1 /= selected_Hz;
+
+                    Variant temp2(1, 0);
+                    temp2 /= begin_Hz;
+
+                    vectors[i].steps = ((value - prev) * accelSteps).toInt();
+                    vectors[i].time = ((temp1 * value) + (temp2 * (Variant(1, 0) - value)));
+
+                    totalSteps += vectors[i].steps;
+                    totalTime += vectors[i].time * vectors[i].steps;
+                }
+
+#ifdef debug_sigmoid
+                Serial.print("\t(");
+                Serial.print(vectors[i].steps);
+                Serial.print(" @ ");
+                Serial.print(vectors[i].time.toString());
+                Serial.println(")");
+#endif
+                prev = value;
+            }
+
+            totalTime *= 2;
+            totalSteps *= 2;
+
+            flatVector.steps = steps - totalSteps.toInt();
+            flatVector.time = vectors[10].time;
+            totalTime += flatVector.time * flatVector.steps;
+
+#ifdef debug_sigmoid
+//            Serial.print("Totals: ");
+//            Serial.print(totalSteps.toString());
+//            Serial.print(" @ ");
+//            Serial.print(totalTime.toString());
+//            Serial.print(" = ");
+            totalTime *= Variant(1095, -3);
+//            Serial.println(totalTime.toString());
+#endif
+
+            Serial.print("Round: " + String(r, DEC));
+
+            if((totalTime.toDouble()) > (move_time_s.toDouble())) {
+                Serial.print("(t +)");
+                begin_Hz = selected_Hz;
+                selected_Hz += (end_Hz - selected_Hz) / 2;
             }
             else {
-                vectors[i].steps = ((value - prev) * accelSteps).toInt();
-                vectors[i].time = ((endPeriod * value) + (beginPeriod * (Variant(1, 0) - value)));
+                Serial.print("(f -)");
+                end_Hz = selected_Hz;
+                selected_Hz -= (begin_Hz - selected_Hz) / 2;
             }
 
-#ifdef debug_sigmoid
-            Serial.print(vectors[i].steps);
-            Serial.print(", ");
-            Serial.print(vectors[i].time.toString());
-            Serial.println(" ");
-#endif
-            prev = value;
+//            Serial.print("\t(");
+//            Serial.print(totalTime.toDouble());
+//            Serial.print(" > ");
+//            Serial.print(move_time_s.toDouble());
+//            Serial.print(")\t");
+//            Serial.print(begin_Hz.toString());
+//            Serial.print(" ");
+//            Serial.print(selected_Hz.toString());
+//            Serial.print(" ");
+//            Serial.print(end_Hz.toString());
+//            Serial.println(" ");
         }
 
-        int totalSteps = 0;
+        // push vectors
         for(int i = 1; i <= points; i++) {
-            totalSteps += vectors[i].steps;
             buffer.push(vectors[i]);
         }
-
-        Vector flatVector(steps - (totalSteps * 2), vectors[10].time); //endPeriod);
-
-#ifdef debug_sigmoid
-        Serial.print(flatVector.steps);
-        Serial.print(", ");
-        Serial.println(flatVector.time.toString());
-#endif
-
         buffer.push(flatVector);
-
         for(int i = points; i > 0; i--) {
             buffer.push(vectors[i]);
         }
-
-#ifdef debug_sigmoid
-        Serial.print("TotalSteps: ");
-        Serial.println(totalSteps);
-        Serial.println(vectors[points].time.toString());
-#endif
     }
 
     void start() {
         vector.steps = 0;
         vector.time = Variant();
         running = true;
+        time = millis();
     }
 
     void pause() {
@@ -320,6 +375,7 @@ public:
     void halt() {
         running = false;
         buffer.clear();
+        Serial.println(millis() - time, DEC);
     }
 
     void setHomeSensor(int pin, bool desiredState = false) {
@@ -337,35 +393,35 @@ public:
 //        Serial.println((us32)homeSensorBit , DEC);
     }
 
-    void chooseBestMove(s32 steps) {
+    void chooseBestMove(s32 steps, Variant move_time_s = 0) {
         if(steps == 0) {
             return;
         }
 
         if(abs(steps) >= (sigSteps.toInt() * 2.5)) {
-            modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient, steps);
+            modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient, steps, move_time_s);
         }
         else {
             Variant period(1, 0);
             period /= sigLow;
             buffer.push(Vector(steps, period));
         }
-        start();
+//        start();
     }
 
     // relative move
-    void move(Variant units) {
+    void move(Variant units, Variant move_time_s = 0) {
         units = config->unitConversion(units);
 
 //        Serial.print(String(motor, DEC));
 //        Serial.print(" move: ");
 //        Serial.println(units.toString());
 
-        chooseBestMove(units.toInt());
+        chooseBestMove(units.toInt(), move_time_s);
     }
 
     // absolute move
-    void moveTo(Variant units) {
+    void moveTo(Variant units, Variant move_time_s = 0) {
         units = config->unitConversion(units);
         units -= config->getCurrentPosition();
 
@@ -373,7 +429,7 @@ public:
 //        Serial.print(" moveTo: ");
 //        Serial.println(units.toString());
 
-        chooseBestMove(units.toInt());
+        chooseBestMove(units.toInt(), move_time_s);
     }
 
     StepConfig* getDefaultConfig() {
@@ -399,6 +455,7 @@ public:
 
     void setEnabled(bool enabled) {
         digitalWrite(pin_enable, !enabled);
+        digitalWrite(pin_sleep ,  enabled);
     }
 
     void setSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient)
@@ -441,6 +498,7 @@ public:
             else if(parser.compare("enable")) {
                 parser.nextToken();
                 setEnabled(parser.toVariant().toBool());
+                parser.println("OK Enable");
             }
             else if(parser.compare("base")) {
                 parser.nextToken();
@@ -462,7 +520,10 @@ public:
                 parser.nextToken();
                 Variant steps = parser.toVariant();
 
-                modifiedSigmoid(begin, end, accelSteps, c.toFloat(), steps.toInt());
+                parser.nextToken();
+                Variant move_time_s = parser.toVariant();
+
+                modifiedSigmoid(begin, end, accelSteps, c.toFloat(), steps.toInt(), move_time_s);
                 start();
             }
             else if(parser.compare("scp")) {
@@ -476,11 +537,17 @@ public:
             }
             else if(parser.compare("move")) {
                 parser.nextToken();
-                move(parser.toVariant());
+                Variant steps = parser.toVariant();
+                parser.nextToken();
+                Variant move_time_s = parser.toVariant();
+                move(steps, move_time_s);
             }
             else if(parser.compare("moveto")) {
                 parser.nextToken();
-                moveTo(parser.toVariant());
+                Variant steps = parser.toVariant();
+                parser.nextToken();
+                Variant move_time_s = parser.toVariant();
+                moveTo(steps, move_time_s);
             }
             else if(parser.compare("setsig")) {
                 parser.nextToken();
@@ -605,8 +672,11 @@ private:
     bool running;
     bool previousState;
     Vector vector;
-    us32 currentSkip;
+//    us32 currentSkip;
     CircleBuffer buffer;
+
+    // time motor
+    int time;
 };
 
 #endif // STEPANDDIRECTION_H
