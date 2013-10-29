@@ -56,6 +56,7 @@ public:
 
         // sigmoid defaults
         setSigmoid(Variant(1, 3), Variant(1, 4), Variant(25, 1), 3);
+        hold = false;
     }
 
     StepAndDirection(us8 motor, us8 card) {
@@ -64,7 +65,7 @@ public:
 
     // todo: verify skip starts at 1
     void sharedInterrupt(Variant timebase) {
-        if(vector.steps == 0 && currentSkip <= 0 && running) {
+        if(vector.steps == 0 && currentSkip <= 0 && running && !hold) {
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
                 if(vector.steps > 0) {
@@ -87,7 +88,7 @@ public:
             }
         }
 
-        if(vector.steps != 0 || currentSkip > 0 && running) {
+        if(vector.steps != 0 || currentSkip > 0 && running && !hold) {
             if(currentSkip > 0) {
                 currentSkip--;
             }
@@ -99,7 +100,7 @@ public:
     }
 
     void unsharedInterrupt() {
-        if(vector.steps == 0 && running) {
+        if(vector.steps == 0 && running && !hold) {
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
                 bool ok;
@@ -136,7 +137,7 @@ public:
             }
         }
 
-        if(vector.steps != 0 && running) {
+        if(vector.steps != 0 && running && !hold) {
             step();
         }
     }
@@ -283,6 +284,14 @@ public:
     void halt() {
         running = false;
         buffer.clear();
+    }
+
+    void holdset(bool state) {
+        hold = state;
+    }
+
+    bool holdget() {
+        return hold;
     }
 
     void setHomeSensor(int pin, bool desiredState = false) {
@@ -595,6 +604,7 @@ private:
     float sigCoefficient;
 
     bool running;
+    bool hold;
     bool previousState;
     Vector vector;
     us32 currentSkip;
