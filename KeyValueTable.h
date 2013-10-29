@@ -167,7 +167,7 @@ public:
 
 private:
     us8 tableSize;
-    KeyValueTableDetail kvTable[24];
+    KeyValueTableDetail kvTable[50];
 
     bool compare(String string, char* buffer, us8 maxLength)
     {

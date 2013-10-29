@@ -315,7 +315,7 @@ public:
     }
 
 private:
-    PropertiesTableDetail propertiesTable[24];
+    PropertiesTableDetail propertiesTable[50];
     fptr_string echoFunction;
     s8 batchMode;
     bool executingAction;

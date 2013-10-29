@@ -8,7 +8,7 @@
 
 class Json {
 public:
-    #define maxPositions 32
+    #define maxPositions 50
 
     typedef enum {
         NotJson = 0,
