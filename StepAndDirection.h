@@ -335,8 +335,22 @@ public:
 //        Serial.print(" moveTo: ");
 //        Serial.println(units.toString());
 
-		if(lowerLimit <= units.toInt()+currentPosition && units.toInt()+currentPosition <= upperLimit){
-			chooseBestMove(units.toInt());
+		Serial.print("Lower Limit ");
+		Serial.print(lowerLimit);
+		Serial.print(", Units ");
+		Serial.print(units.toInt()+currentPosition);
+		Serial.print(", Upper Limit ");
+		Serial.println(upperLimit);
+
+		if(lowerLimit < upperLimit){
+			if(lowerLimit <= units.toInt()+currentPosition && units.toInt()+currentPosition <= upperLimit){
+				chooseBestMove(units.toInt());
+			}
+		}
+		else if (lowerLimit > upperLimit){
+			if(lowerLimit >= units.toInt()+currentPosition && units.toInt()+currentPosition >= upperLimit){
+				chooseBestMove(units.toInt());
+			}
 		}
     }
 
@@ -483,6 +497,10 @@ public:
             }
         }
     }
+	
+	s32 getCurrentPosition(){
+		return currentPosition;
+	}
 
     uint32_t interruptPeriod;
 
