@@ -127,6 +127,10 @@ public:
         return batchMode;
     }
 
+    void disableAction(bool disable) {
+        executingAction = disable;
+    }
+
     bool update(String key, String value)
     {
         s8 index = findIndex(key);
@@ -302,7 +306,6 @@ public:
                     list << "json";
                     list << value(i);
                 }
-
 
                 parser.print(list.augment("\t\"%1\": [\"%3\", \"%2\", %4]"));
                 if(i < (length - 1)) {
