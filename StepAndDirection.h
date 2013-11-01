@@ -33,12 +33,16 @@ public:
         currentPosition = position;
     }
 
-    void setConversion(Variant mx, Variant b, us8 precision = 0) {
-         if(mx != 0) {
-             conversion_mx = mx;
-             conversion_b = b;
-             conversion_p = pow(10, precision);
-         }
+    void setConversion(Variant mx, Variant b = 0, us8 precision = 0) {
+        if(mx != 0) {
+            conversion_mx = mx;
+            conversion_b = b;
+            conversion_p = pow(10, precision);
+        }
+    }
+
+    void setOffset(Variant b) {
+        conversion_b = b;
      }
 
     void setLimits(Variant min, Variant max) {
@@ -52,11 +56,20 @@ public:
         }
     }
 
-    Variant unitConversion(Variant units) {
+    Variant unitConversion(Variant units, bool *ok = 0) {
         if(limit_enabled) {
-            if(units < limit_min || units > limit_max) {
+//            if(units < limit_min || units > limit_max) {
+            double temp = units.toDouble();
+            if(temp < limit_min.toDouble() || temp > limit_max.toDouble()) {
+                if(ok != 0) {
+                    *ok = false;
+                }
                 return 0;
             }
+        }
+
+        if(ok != 0) {
+            *ok = true;
         }
 //        Serial.println("In:" + units.toString());
 //        units *= conversion_p;
@@ -355,25 +368,23 @@ public:
 
     // relative move
     void move(Variant units) {
-        units = config->unitConversion(units);
+        bool ok;
+        units = config->unitConversion(units, &ok);
 
-//        Serial.print(String(motor, DEC));
-//        Serial.print(" move: ");
-//        Serial.println(units.toString());
-
-        chooseBestMove(units.toInt());
+        if(ok) {
+            chooseBestMove(units.toInt());
+        }
     }
 
     // absolute move
     void moveTo(Variant units) {
-        units = config->unitConversion(units);
+        bool ok;
+        units = config->unitConversion(units, &ok);
         units -= config->getCurrentPosition();
 
-//        Serial.print(String(motor, DEC));
-//        Serial.print(" moveTo: ");
-//        Serial.println(units.toString());
-
-        chooseBestMove(units.toInt());
+        if(ok) {
+            chooseBestMove(units.toInt());
+        }
     }
 
     StepConfig* getDefaultConfig() {
@@ -397,7 +408,7 @@ public:
         config->setCurrentPosition(position);
     }
 
-    void setConversion(Variant mx, Variant b, us8 precision = 0) {
+    void setConversion(Variant mx, Variant b = 0, us8 precision = 0) {
          config->setConversion(mx, b, precision);
      }
 
@@ -405,8 +416,8 @@ public:
         config->setLimits(min, max);
     }
 
-    Variant unitConversion(Variant units) {
-        return config->unitConversion(units);
+    Variant unitConversion(Variant units, bool *ok = 0) {
+        return config->unitConversion(units, ok);
     }
 
     bool isBusy() {
