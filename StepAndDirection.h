@@ -8,6 +8,7 @@
 #include "Vector.h"
 
 
+#define fast_io
 //#define debug_sigmoid
 #define array_base_type 0
 typedef bool us1;	// for some reason typedef for bool or boolean do not work
@@ -22,7 +23,6 @@ public:
         conversion_b = 0;
         conversion_p = 0;
         limit_enabled = false;
-
     }
 
     s32 getCurrentPosition() {
@@ -387,6 +387,26 @@ public:
         else {
             config = temp;
         }
+    }
+
+    s32 getCurrentPosition() {
+       return config->getCurrentPosition();
+    }
+
+    void setCurrentPosition(s32 position) {
+        config->setCurrentPosition(position);
+    }
+
+    void setConversion(Variant mx, Variant b, us8 precision = 0) {
+         config->setConversion(mx, b, precision);
+     }
+
+    void setLimits(Variant min, Variant max) {
+        config->setLimits(min, max);
+    }
+
+    Variant unitConversion(Variant units) {
+        return config->unitConversion(units);
     }
 
     bool isBusy() {
