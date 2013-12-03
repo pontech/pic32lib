@@ -6,7 +6,7 @@
 #include "StringList.h"
 
 #define keySize 20
-#define valueSize 16
+#define valueSize 40
 
 class KeyValueTable {
     friend class Properties;
@@ -19,7 +19,7 @@ class KeyValueTable {
 public:
     KeyValueTable(us8 size = 10)
     {
-        kvTable = (KeyValueTableDetail*)malloc(size * sizeof(KeyValueTableDetail));
+        //kvTable = (KeyValueTableDetail*)malloc(size * sizeof(KeyValueTableDetail));
         tableSize = size;
     }
 
@@ -167,7 +167,7 @@ public:
 
 private:
     us8 tableSize;
-    KeyValueTableDetail *kvTable;
+    KeyValueTableDetail kvTable[24];
 
     bool compare(String string, char* buffer, us8 maxLength)
     {

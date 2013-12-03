@@ -34,7 +34,7 @@ public:
     Properties(us8 size = 10)
         : KeyValueTable(size)
     {
-        propertiesTable = (PropertiesTableDetail*)malloc(size * sizeof(PropertiesTableDetail));
+        //propertiesTable = (PropertiesTableDetail*)malloc(size * sizeof(PropertiesTableDetail));
 
         for(us8 i = 0; i < tableSize; i++) {
             propertiesTable[i].type = NullProperty;
@@ -135,6 +135,10 @@ public:
 
     bool update(s8 index, String value)
     {
+        //Serial.print(key(index));
+        //Serial.print("=>");
+        //Serial.print(value);
+        //Serial.println(";");
         if(0 <= index && index < tableSize) {
             setValue(index, value);
 
@@ -215,6 +219,10 @@ public:
                     if(propertiesTable[index].mode == RW) {
                         String value = json.value(i).toString();
                         setValue(index, value);
+                        //Serial.print(json.key(i));
+                        //Serial.print("<=");
+                        //Serial.print(value);
+                        //Serial.println(";");
 
                         if(propertiesTable[index].action != 0) {
                             propertiesTable[index].action(value);
@@ -315,7 +323,7 @@ public:
     }
 
 private:
-    PropertiesTableDetail *propertiesTable;
+    PropertiesTableDetail propertiesTable[24];
     fptr_string echoFunction;
     s8 batchMode;
     bool executingAction;
