@@ -32,6 +32,7 @@ namespace chipKIT
 	  public:
 		// constructors
 		String( const char *value = "" );
+		String( const char *value, int buffer_length );
 		String( const String &value );
 		String( const char );
 		String( const unsigned char );

@@ -35,6 +35,15 @@ String::String( const char *value )
 	strcpy( _buffer, value );
 }
 
+String::String( const char *value, int buffer_length )
+{
+  if ( value == NULL )
+	value = "";
+  getBuffer( _length = buffer_length );
+  if ( _buffer != NULL )
+	strcpy( _buffer, value );
+}
+
 String::String( const String &value )
 {
   getBuffer( _length = value._length );
