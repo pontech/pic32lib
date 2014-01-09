@@ -18,6 +18,7 @@
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 //#if (ARDUINO >= 100)
 //	#include <Arduino.h>
 //#else
@@ -26,6 +27,43 @@
 #include "WString.h"
 
 namespace chipKIT{
+
+/**
+ * C++ version 0.4 char* style "itoa":
+ * Written by Lukás Chmela
+ * Released under GPLv3.
+
+ */
+
+char* ltoa(long value, char* result, int base) {
+	// check that the base if valid
+	if (base < 2 || base > 36) { *result = '\0'; return result; }
+
+	char* ptr = result, *ptr1 = result, tmp_char;
+	int tmp_value;
+
+	do {
+		tmp_value = value;
+		value /= base;
+		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
+	} while ( value );
+
+	// Apply negative sign
+	if (tmp_value < 0) *ptr++ = '-';
+	*ptr-- = '\0';
+	while(ptr1 < ptr) {
+		tmp_char = *ptr;
+		*ptr--= *ptr1;
+		*ptr1++ = tmp_char;
+	}
+	return result;
+}
+
+char* itoa(int value, char* result, int base) {
+	ltoa(value, result, base);
+	return result;
+}
+
 String::String( const char *value )
 {
   if ( value == NULL )
@@ -74,7 +112,7 @@ String::String( const unsigned char value )
 String::String( const int value, const int base )
 {
   char buf[33];
-  //itoa((signed long)value, buf, base);
+  itoa((signed long)value, buf, base);
   getBuffer( _length = strlen(buf) );
   if ( _buffer != NULL )
 	strcpy( _buffer, buf );
@@ -84,6 +122,7 @@ String::String( const unsigned int value, const int base )
 {
   char buf[33];   
   //ultoa((unsigned long)value, buf, base);
+  strcpy(buf, "ultoa-missing");
   getBuffer( _length = strlen(buf) );
   if ( _buffer != NULL )
 	strcpy( _buffer, buf );
@@ -91,8 +130,8 @@ String::String( const unsigned int value, const int base )
 
 String::String( const long value, const int base )
 {
-  char buf[33];   
-  //ltoa(value, buf, base);
+  char buf[33];
+  ltoa(value, buf, base);
   getBuffer( _length = strlen(buf) );
   if ( _buffer != NULL )
 	strcpy( _buffer, buf );
@@ -101,7 +140,8 @@ String::String( const long value, const int base )
 String::String( const unsigned long value, const int base )
 {
   char buf[33];   
-  //ultoa(value, buf, 10);
+  //ultoa(value, buf, 10); // should this be base instead of 10?
+  strcpy(buf, "ultoa-missing");
   getBuffer( _length = strlen(buf) );
   if ( _buffer != NULL )
 	strcpy( _buffer, buf );
