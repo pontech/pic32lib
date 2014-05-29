@@ -335,6 +335,10 @@ public:
         buffer.clear();
     }
 
+    bool getHomeSensorStatus() {
+        return (homeSensorPort == 0) ? true : false;
+    }
+    
     void setHomeSensor(int pin, bool desiredState = false) {
         if(pin == 0) {
             homeSensorPort = (p32_ioport *)0;
@@ -346,8 +350,8 @@ public:
             previousState = (bool)(homeSensorPort->port.reg & homeSensorBit);
         }
         homeSensorPolarity = desiredState;
-//        Serial.println((us32)homeSensorPort, DEC);
-//        Serial.println((us32)homeSensorBit , DEC);
+        //        Serial.println((us32)homeSensorPort, DEC);
+        //        Serial.println((us32)homeSensorBit , DEC);
     }
 
     void chooseBestMove(s32 steps) {
@@ -579,6 +583,7 @@ private:
     inline void step() {
         if(readHomeSensor()) {
             halt();
+            homeSensorPort = 0;
             return;
         }
 #ifdef fast_io

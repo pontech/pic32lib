@@ -31,7 +31,7 @@ public:
         us8 changed;
     } PropertiesTableDetail;
 
-    Properties(us8 size = 10)
+    Properties(us8 size = 24)
         : KeyValueTable(size)
     {
         //propertiesTable = (PropertiesTableDetail*)malloc(size * sizeof(PropertiesTableDetail));

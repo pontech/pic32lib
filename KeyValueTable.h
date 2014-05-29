@@ -17,7 +17,7 @@ class KeyValueTable {
     } KeyValueTableDetail;
 
 public:
-    KeyValueTable(us8 size = 10)
+    KeyValueTable(us8 size = 24)
     {
         //kvTable = (KeyValueTableDetail*)malloc(size * sizeof(KeyValueTableDetail));
         tableSize = size;
