@@ -303,7 +303,7 @@ private:
 
     Stream* myStream;
     us8* buffer;
-    us8 length;	///< lenght of all the characters in the buffer (up to stopCharacter)
+    us8 length;	///< length of all the characters in the buffer (up to stopCharacter)
     us8 head;	///< index of delimiter trailing the current token
     us8 tail;	///< index of the first character in the current token
     us8 savedHead;

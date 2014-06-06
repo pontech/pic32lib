@@ -32,21 +32,23 @@ public:
 		interrupts();
 		return currentPosition_temp;
     }
-
     void setCurrentPosition(s32 position) {
 		noInterrupts();
         currentPosition = position;
 		interrupts();
     }
+	/// Set the destination position (in absolute steps)
+    void setDestinationPosition(s32 position) {
+        destinationPosition = position;
+    }
 	/// Update the destination position (in steps relative to current destinationPosition)
     void updateDestinationPosition(s32 position) {
         destinationPosition = destinationPosition + position;
     }
-	/// Get the destination position
+	/// Get the destination position (in absolute steps)
     s32 getDestinationPosition() {
         return destinationPosition;
     }
-	
     void setConversion(Variant mx, Variant b = 0, us8 precision = 0) {
         if(mx != 0) {
             conversion_mx = mx;
@@ -54,11 +56,9 @@ public:
             conversion_p = pow(10, precision);
         }
     }
-
     void setOffset(Variant b) {
         conversion_b = b;
      }
-
     void setLimits(Variant min, Variant max) {
         if(min != 0 && max != 0) {
             limit_min = min;
@@ -66,6 +66,8 @@ public:
             limit_enabled = true;
         }
         else {
+			limit_max = Variant((s32)0x7fffffff, 0);
+			limit_min = Variant((s32)0x80000000, 0);
             limit_enabled = false;
         }
     }
@@ -152,11 +154,9 @@ public:
         // sigmoid defaults
         setSigmoid(Variant(1, 3), Variant(1, 4), Variant(25, 1), 3);
     }
-
     StepAndDirection(us8 motor, us8 card) {
         *this = StepAndDirection(motor, KardIO[card][0], KardIO[card][1], KardIO[card][2], KardIO[card][3], KardIO[card][4]);
     }
-
     StepAndDirection(us8 motor, us8 card, char *starts_with) {
         *this = StepAndDirection(motor, card);
 		StepAndDirection::starts_with = starts_with;
@@ -197,7 +197,6 @@ public:
             }
         }
     }
-
     void unsharedInterrupt() {
         if(vector.steps == 0 && running) {
             if(!buffer.isEmpty()) {
@@ -240,7 +239,6 @@ public:
             step();
         }
     }
-
     uint32_t setTimeBase(Variant milliseconds, bool *ok = 0) {
         if(milliseconds >= Variant(5, -6) && milliseconds <= Variant(1, 0)) {
             Variant var(1, 6);
@@ -340,26 +338,29 @@ public:
         Serial.println(vectors[points].time.toString());
 #endif
     }
-
     void start() {
         vector.steps = 0;
         vector.time = Variant();
         running = true;
     }
-
     void pause() {
         running = false;
     }
-
-    void halt() {
+	/// Halt, wait for current vector to finish (could be a long long time).
+    inline void halt() {
         running = false;
         buffer.clear();
     }
-
+	/// Halt immediately, do not wait for current vector to finish. 
+    inline void halt_immediatly() {
+		noInterrupts();
+		halt();
+		vector.steps = 0;
+		interrupts();
+    }
     bool getHomeSensorStatus() {
         return (homeSensorPort == 0) ? true : false;
     }
-    
     void setHomeSensor(int pin, bool desiredState = false) {
         if(pin == 0) {
             homeSensorPort = (p32_ioport *)0;
@@ -374,7 +375,6 @@ public:
         //        Serial.println((us32)homeSensorPort, DEC);
         //        Serial.println((us32)homeSensorBit , DEC);
     }
-
     void chooseBestMove(s32 steps) {
 #ifdef debug_stp
 	Serial.print("chooseBestMove ");
@@ -397,7 +397,6 @@ public:
         }
         start();
     }
-
     /// relative move
     void move(Variant units) {
         bool ok;
@@ -416,22 +415,32 @@ public:
             chooseBestMove(units.toInt());
         }
     }
-
     /// absolute move
     void moveTo(Variant units) {
         bool ok;
+#ifdef debug_stp
+	Serial.print("move ");
+	Serial.print(units.toString());
+	Serial.print("->");
+#endif
         units = config->unitConversion(units, &ok);
+#ifdef debug_stp
+	Serial.print(units.toString());
+	Serial.print("->");
+#endif
         units -= config->getCurrentPosition();
+#ifdef debug_stp
+	Serial.print(units.toString());
+	Serial.println(" steps");
+#endif
 
         if(ok) {
             chooseBestMove(units.toInt());
         }
     }
-
     StepConfig* getDefaultConfig() {
         return defaultConfig;
     }
-
     void setConfig(StepConfig *temp) {
         if(temp == 0) {
             config = defaultConfig;
@@ -440,7 +449,6 @@ public:
             config = temp;
         }
     }
-
     s32 getCurrentPosition() {
 		if( config == 0 ) return 0;
 		return config->getCurrentPosition();
@@ -453,38 +461,37 @@ public:
 		if( config == 0 ) return 0;
 		return config->getDestinationPosition() - config->getCurrentPosition();
     }
-
     void setCurrentPosition(s32 position) {
+		if( config == 0 ) return;
         config->setCurrentPosition(position);
     }
-
+	void setDestinationPosition(s32 position) {
+		if( config == 0 ) return;
+        config->setDestinationPosition(position);
+	}
     void setConversion(Variant mx, Variant b = 0, us8 precision = 0) {
-         config->setConversion(mx, b, precision);
+		if( config == 0 ) return;
+        config->setConversion(mx, b, precision);
      }
-
     void setLimits(Variant min, Variant max) {
+		if( config == 0 ) return;
         config->setLimits(min, max);
     }
-
     Variant unitConversion(Variant units, bool *ok = 0) {
+		if( config == 0 ) return units;
         return config->unitConversion(units, ok);
     }
-
     bool isBusy() {
         return running;
     }
-
     bool isReady() {
         return !running;
     }
-
 	/// Assert or de-assert the enable line for the stepper driver
     void setEnabled(bool enabled) {
         digitalWrite(pin_enable, !enabled);
     }
-
-    void setSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient)
-    {
+    void setSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient) {
         sigLow = begin;
         sigHigh = end;
         sigSteps = accelSteps;
@@ -503,11 +510,14 @@ public:
                 parser.restore();
                 return;
             }
-#ifdef debug_stp
-        parser.println("found motor");
+            parser.nextToken();
+
+			#ifdef debug_stp
+        parser.print("motor command:\"");
+        parser.print(parser.toString());
+        parser.println("\"");
 #endif
 
-            parser.nextToken();
 			/// List of support commands
 			if(parser.compare("pairs")) { /// pairs
                 for(int i = 0; i < buffer.size; i++) {
@@ -556,7 +566,7 @@ public:
             }
             else if(parser.compare("scp")) { /// scp (set current position)
                 parser.nextToken();
-                config->setCurrentPosition(parser.toVariant().toInt());
+                setCurrentPosition(parser.toVariant().toInt());
             }
             else if(parser.compare("rcp")) { /// rcp (read current position)
 				parser.println(String(getCurrentPosition(), DEC) + " steps");
@@ -606,7 +616,9 @@ public:
                 parser.nextToken();
                 config->setConversion(mx, b, parser.toVariant().toInt());
             }
-			/// Here begins a list of PONTECH STP10x compatible commands
+			/**
+ 			 * Here begins a list of PONTECH STP10x compatible commands
+			 */
             else if(parser.compare("so")) { /// SO Stepper Off (disable driver)
                 setEnabled(false);
                 Serial.println("OK");
@@ -635,7 +647,21 @@ public:
             }
             else if(parser.compare("hm")) { /// HM n (set current position)
                 parser.nextToken();
-                config->setCurrentPosition(parser.toVariant().toInt());
+                setCurrentPosition(parser.toVariant().toInt());
+                setDestinationPosition(parser.toVariant().toInt());
+                Serial.println("OK");
+            }
+            else if(parser.compare("h0")) { /// H0 (stop the motor from running)
+                parser.nextToken();
+				halt_immediatly();
+                Serial.println("OK");
+            }
+            else if(parser.compare("h+")) { /// H+ (absolute move the limit max)
+                moveTo(config->limit_max);
+                Serial.println("OK");
+            }
+            else if(parser.compare("h-")) { /// H- (absolute move the limit min)
+                moveTo(config->limit_min);
                 Serial.println("OK");
             }
             else if(parser.compare("ii")) { /// II n (Move relative to position n)
@@ -676,7 +702,7 @@ private:
 
     inline void step() {
         if(readHomeSensor()) {
-            halt();
+            halt_immediatly();
             homeSensorPort = 0;
             return;
         }
@@ -735,8 +761,8 @@ private:
 
     bool running;
     bool previousState;
-    Vector vector;
-    us32 currentSkip;
+    Vector vector; 	///< The currently running vector in the interrupt
+    us32 currentSkip;	///< The amount of time (interrupt time base counts) that needs to be skipped before the next step
     CircleBuffer buffer;
 };
 
