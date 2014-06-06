@@ -376,6 +376,12 @@ public:
     }
 
     void chooseBestMove(s32 steps) {
+#ifdef debug_stp
+	Serial.print("chooseBestMove ");
+	Serial.print(String(steps,DEC));
+	Serial.println(" steps");
+#endif
+
         if(steps == 0) {
             return;
         }
@@ -395,7 +401,16 @@ public:
     /// relative move
     void move(Variant units) {
         bool ok;
+#ifdef debug_stp
+	Serial.print("move ");
+	Serial.print(units.toString());
+	Serial.print("->");
+#endif
         units = config->unitConversion(units, &ok);
+#ifdef debug_stp
+	Serial.print(units.toString());
+	Serial.println(" steps");
+#endif
 
         if(ok) {
             chooseBestMove(units.toInt());
