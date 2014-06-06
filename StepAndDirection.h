@@ -356,6 +356,7 @@ public:
 		noInterrupts();
 		halt();
 		vector.steps = 0;
+		config->setDestinationPosition(config->getCurrentPosition());
 		interrupts();
     }
     bool getHomeSensorStatus() {
