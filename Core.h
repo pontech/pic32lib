@@ -1,6 +1,18 @@
 #ifndef _CORE_H_
 #define _CORE_H_
 
+/*! \mainpage Documentation for the chipKIT pic32lib by PONTECH
+ *
+ * \section intro_sec Introduction
+ *
+ * These libraries were built to support PONTECH Quick240 product but
+ * other chipKIT users may find them useful as well.
+ *
+ * \section install_sec Installation
+ * These libraries are available for cloning or forking at https://github.com/pontech/pic32lib
+ *
+ */
+ 
 /*
 CPU Type = 32MX795F512L
 size of char = 1

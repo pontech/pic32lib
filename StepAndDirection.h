@@ -26,13 +26,27 @@ public:
     }
 
     s32 getCurrentPosition() {
-       return currentPosition;
+		s32 currentPosition_temp;
+		noInterrupts();
+		currentPosition_temp = currentPosition;
+		interrupts();
+		return currentPosition_temp;
     }
 
     void setCurrentPosition(s32 position) {
+		noInterrupts();
         currentPosition = position;
+		interrupts();
     }
-
+	/// Update the destination position (in steps relative to current destinationPosition)
+    void updateDestinationPosition(s32 position) {
+        destinationPosition = destinationPosition + position;
+    }
+	/// Get the destination position
+    s32 getDestinationPosition() {
+        return destinationPosition;
+    }
+	
     void setConversion(Variant mx, Variant b = 0, us8 precision = 0) {
         if(mx != 0) {
             conversion_mx = mx;
@@ -79,7 +93,8 @@ public:
     }
 
 private:
-    s32 currentPosition;
+    volatile s32 currentPosition; ///< current step position (updated in the interrupt)
+    s32 destinationPosition; ///< current step position (updated in with a move or moveto command)
 
     // conversion variables
     Variant conversion_mx;
@@ -97,6 +112,7 @@ private:
 class StepAndDirection {
 public:
     StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep, us8 pin_ms2) {
+		StepAndDirection::starts_with = "stp?";
         StepAndDirection::motor = motor;
 #ifndef fast_io
         StepAndDirection::pin_step = pin_step;
@@ -139,6 +155,11 @@ public:
 
     StepAndDirection(us8 motor, us8 card) {
         *this = StepAndDirection(motor, KardIO[card][0], KardIO[card][1], KardIO[card][2], KardIO[card][3], KardIO[card][4]);
+    }
+
+    StepAndDirection(us8 motor, us8 card, char *starts_with) {
+        *this = StepAndDirection(motor, card);
+		StepAndDirection::starts_with = starts_with;
     }
 
     // todo: verify skip starts at 1
@@ -359,6 +380,7 @@ public:
             return;
         }
 
+		config->updateDestinationPosition(steps);
         if(abs(steps) >= (sigSteps.toInt() * 2.5)) {
             modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient, steps);
         }
@@ -370,7 +392,7 @@ public:
         start();
     }
 
-    // relative move
+    /// relative move
     void move(Variant units) {
         bool ok;
         units = config->unitConversion(units, &ok);
@@ -380,7 +402,7 @@ public:
         }
     }
 
-    // absolute move
+    /// absolute move
     void moveTo(Variant units) {
         bool ok;
         units = config->unitConversion(units, &ok);
@@ -405,7 +427,16 @@ public:
     }
 
     s32 getCurrentPosition() {
-       return config->getCurrentPosition();
+		if( config == 0 ) return 0;
+		return config->getCurrentPosition();
+    }
+	s32 getDestinationPosition() {
+		if( config == 0 ) return 0;
+		return config->getDestinationPosition();
+    }
+	s32 getDeltaPosition() {
+		if( config == 0 ) return 0;
+		return config->getDestinationPosition() - config->getCurrentPosition();
     }
 
     void setCurrentPosition(s32 position) {
@@ -432,6 +463,7 @@ public:
         return !running;
     }
 
+	/// Assert or de-assert the enable line for the stepper driver
     void setEnabled(bool enabled) {
         digitalWrite(pin_enable, !enabled);
     }
@@ -444,18 +476,25 @@ public:
         sigCoefficient = coefficient;
     }
 
+	/**
+	 * Parse commands received from the TokenParser
+	 */
     void command(TokenParser &parser) {
-        if(parser.startsWith("stp?")) {
+        if(parser.startsWith(starts_with)) {
             parser.save();
-            parser.advanceTail(3);
+            parser.advanceTail(strlen(starts_with) - 1);
 
             if(motor != parser.toVariant().toInt()) {
                 parser.restore();
                 return;
             }
+#ifdef debug_stp
+        parser.println("found motor");
+#endif
 
             parser.nextToken();
-            if(parser.compare("pairs")) {
+			/// List of support commands
+			if(parser.compare("pairs")) { /// pairs
                 for(int i = 0; i < buffer.size; i++) {
                     if(!parser.nextToken()) {
                         break;
@@ -473,15 +512,15 @@ public:
                 parser.println("OK Pairs");
                 start();
             }
-            else if(parser.compare("enable")) {
+            else if(parser.compare("enable")) { /// enable true|false
                 parser.nextToken();
                 setEnabled(parser.toVariant().toBool());
             }
-            else if(parser.compare("base")) {
+            else if(parser.compare("base")) { /// base n
                 parser.nextToken();
                 setTimeBase(parser.toVariant());
             }
-            else if(parser.compare("test")) {
+            else if(parser.compare("test")) { /// test n n n n n (generate a modifiedSigmoid)
                 parser.nextToken();
                 Variant begin = parser.toVariant();
 
@@ -500,20 +539,18 @@ public:
                 modifiedSigmoid(begin, end, accelSteps, c.toFloat(), steps.toInt());
                 start();
             }
-            else if(parser.compare("scp")) {
+            else if(parser.compare("scp")) { /// scp (set current position)
                 parser.nextToken();
                 config->setCurrentPosition(parser.toVariant().toInt());
             }
-            else if(parser.compare("rcp")) {
-                if(config != 0) {
-                    parser.println(String(config->getCurrentPosition(), DEC) + " steps");
-                }
+            else if(parser.compare("rcp")) { /// rcp (read current position)
+				parser.println(String(getCurrentPosition(), DEC) + " steps");
             }
-            else if(parser.compare("move")) {
+            else if(parser.compare("move")) { /// move n (relative n steps)
                 parser.nextToken();
                 move(parser.toVariant());
             }
-            else if(parser.compare("moveto")) {
+            else if(parser.compare("moveto")) { /// move n (absolute position n)
                 parser.nextToken();
                 moveTo(parser.toVariant());
             }
@@ -553,6 +590,48 @@ public:
 
                 parser.nextToken();
                 config->setConversion(mx, b, parser.toVariant().toInt());
+            }
+			/// Here begins a list of PONTECH STP10x compatible commands
+            else if(parser.compare("so")) { /// SO Stepper Off (disable driver)
+                setEnabled(false);
+                Serial.println("OK");
+            }
+            else if(parser.compare("sp")) { /// SP Stepper Powered (enable driver)
+                setEnabled(true);
+                Serial.println("OK");
+            }
+            else if(parser.compare("rc")) { /// RC (read current position)
+				parser.println(String(getCurrentPosition(), DEC));
+            }
+            else if(parser.compare("rd")) { /// RD (read destination position)
+				parser.println(String(getDestinationPosition(), DEC));
+            }
+            else if(parser.compare("rt")) { /// RT (read delta position)
+				parser.println(String(getDeltaPosition(), DEC));
+            }
+            else if(parser.compare("rx")) { /// RX (read sign of delta)
+				s32 temp = getDeltaPosition();
+				if( temp > 0 )
+					parser.println("+");
+				else if( temp < 0 )
+					parser.println("-");
+				else
+					parser.println("0");
+            }
+            else if(parser.compare("hm")) { /// HM n (set current position)
+                parser.nextToken();
+                config->setCurrentPosition(parser.toVariant().toInt());
+                Serial.println("OK");
+            }
+            else if(parser.compare("ii")) { /// II n (Move relative to position n)
+                parser.nextToken();
+                move(parser.toVariant());
+                Serial.println("OK");
+            }
+            else if(parser.compare("mi")) { /// MI n (Move absolute to position n)
+                parser.nextToken();
+                moveTo(parser.toVariant());
+                Serial.println("OK");
             }
         }
     }
@@ -611,6 +690,7 @@ private:
     us8 motor;
     us8 pin_enable;
     us8 pin_sleep;
+	char *starts_with;
     StepConfig *config;
     StepConfig *defaultConfig;
 

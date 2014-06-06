@@ -23,6 +23,7 @@ public:
         stopCharactorFound = false;
         type = InvalidToken;
     }
+	/// Read in characters from the stream
     bool scan(us8 stopCharactor = '\r') {
         if(stopCharactorFound) {
             stopCharactorFound = false;
@@ -46,6 +47,7 @@ public:
         }
         return stopCharactorFound;
     }
+	// Get the length of the entire string in the buffer
     us8 getLength() {
         return length;
     }
@@ -61,6 +63,7 @@ public:
     bool isJson() {
         return (type == JsonToken) ? true : false;
     }
+	/// reset head and tail to 0 (zero)
     void reset() {
         head = 0;
         tail = 0;
@@ -73,7 +76,7 @@ public:
         head = savedHead;
         tail = savedTail;
     }
-    // todo: add bounds checking
+    /// todo: add bounds checking
     bool startsWith(const char* string, bool caseSensitive = false) {
         us8 i = 0;
         us8 index = tail;
@@ -100,7 +103,7 @@ public:
 #endif
         return true;
     }
-    // Compares an entire string for equality
+    /// Compares an entire string for equality
     bool compare(const char* string, bool caseSensitive = false) {
         us8 i = 0;
         us8 index = tail;
@@ -134,7 +137,7 @@ public:
 #endif
         return true;
     }
-    // todo: enforce consecutive characters
+    /// todo: enforce consecutive characters
     bool contains(const char* string, bool caseSensitive = false) {
         us8 i = 0;
         us8 index = tail;
@@ -173,11 +176,10 @@ public:
         }
         return String();
     }
-        bool nextToken(s8 index = -1) {
+    bool nextToken(s8 index = -1) {
         if((0 < index) && (index < length)) {
             head = index;
         }
-
         tail = head;
         for(us8 i = tail; tail < length; i++) {
             s8 result = match(buffer[i], " \n\t{");
@@ -198,6 +200,13 @@ public:
             if(result != -1) {
                 head = i;
                 type = ValidToken;
+#ifdef DEBUG_TOKEN_PARSER
+        print("nextToken (head=");
+        print(String(head,DEC));
+        print(",tail=");
+        print(String(tail,DEC));
+        println(")");
+#endif
                 return true;
             }
         }
@@ -243,7 +252,16 @@ public:
         return c & 0xf;
     }
     Variant toVariant() {
-        return Variant::fromString(toString());
+#ifdef DEBUG_TOKEN_PARSER
+        print("toVariant (head=");
+        print(String(head,DEC));
+        print(",tail=");
+        print(String(tail,DEC));
+        print(") \"");
+        print(toString());
+        println("\"");
+#endif        
+		return Variant::fromString(toString());
     }
     void print(const String &string) {
         myStream->print(string);
@@ -251,10 +269,10 @@ public:
     void println(const String &string) {
         myStream->println(string);
     }
-    static s8 match(us8 charactor, const char* delimiters = 0) {
+    static s8 match(us8 character, const char* delimiters = 0) {
         us8 i = 0;
         while(delimiters[i] != 0) {
-            if(charactor == delimiters[i]) {
+            if(character == delimiters[i]) {
                 return i;
             }
             i++;
@@ -285,9 +303,9 @@ private:
 
     Stream* myStream;
     us8* buffer;
-    us8 length;
-    us8 head;
-    us8 tail;
+    us8 length;	///< lenght of all the characters in the buffer (up to stopCharacter)
+    us8 head;	///< index of delimiter trailing the current token
+    us8 tail;	///< index of the first character in the current token
     us8 savedHead;
     us8 savedTail;
     bool stopCharactorFound;
