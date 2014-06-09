@@ -675,6 +675,9 @@ public:
                 moveTo(parser.toVariant());
                 Serial.println("OK");
             }
+            else if(parser.compare("v?")) { /// V? (Return command set version)
+                Serial.println("STP100 V2.3");
+            }
         }
     }
 
