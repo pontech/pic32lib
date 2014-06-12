@@ -115,6 +115,12 @@ public:
         us8 length = string.length();
         bool negative = false;
 
+#ifdef debug_variant
+		Serial.print("fromString \"");
+		Serial.print(string);
+		Serial.println("\"");
+#endif
+
         if(string.startsWith("-")) {
 #ifdef debug_variant
             Serial.println("Is Negative");
@@ -123,7 +129,19 @@ public:
             negative = true;
         }
 
-        if(string.startsWith("0x")) { // Hexadecimal
+		if(string == "true") {
+#ifdef debug_variant
+            Serial.println("Is boolean");
+#endif
+			value = 1;
+		}
+		else if(string == "false") {
+#ifdef debug_variant
+            Serial.println("Is boolean");
+#endif
+			value = 0;
+		}
+        else if(string.startsWith("0x")) { // Hexadecimal
 #ifdef debug_variant
             Serial.println("Is Hex");
 #endif
@@ -139,8 +157,13 @@ public:
             Serial.println("Is Bin");
 #endif
             index += 2;
+            do {
+                value <<= 1;
+                value |= Variant::binCharToNibble(string.charAt(index++));
+            }
+            while(index < length);
         }
-        else if(string.indexOf("e") != -1) { // Exp.Notation
+        else if(string.indexOf("e") != -1) { /// Exp.Notation (does not *yet* handle floating point mantissa)
 #ifdef debug_variant
             Serial.println("Is Exp.Notation");
 #endif
@@ -149,7 +172,7 @@ public:
             pos++;
             exp = (s8)(string.substring(pos, length).toInt());
         }
-        else if(string.indexOf(".") != -1) { // Real Number
+        else if(string.indexOf(".") != -1) { // Real(ish) Number
 #ifdef debug_variant
             Serial.println("Is Real");
 #endif
@@ -185,12 +208,6 @@ public:
             value *= -1;
         }
 
-        if(value == 0) {
-            if(string == "true") {
-                value = 1;
-            }
-        }
-
 		
 		var.fvalue = value * pow(10, exp);
 #ifdef debug_variant
@@ -215,9 +232,9 @@ public:
     double toDouble() {
         return fvalue;
     }
-    String toString() {
+    String toString(char *format = "%1.3e") {
 		char temp[50];
-		sprintf(temp, "%1.3e", fvalue);		
+		sprintf(temp, format, fvalue);		
         return String(temp);
     }
 
@@ -324,7 +341,17 @@ private:
         else if('a' <= c && c <= 'f') {
             c -= 0x57;
         }
+		else
+			c = 0;
         return c & 0xf;
+    }
+    static inline us8 binCharToNibble(us8 c) {
+        if('0' <= c && c <= '1') {
+            c -= 0x30;
+        }
+		else
+			c = 0;
+        return c & 0x1;
     }
 
 	double fvalue;
