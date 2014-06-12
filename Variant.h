@@ -188,28 +188,32 @@ public:
         }
         else { // Whole Number
 #ifdef debug_variant
-            Serial.print("Is Whole \"");
+            Serial.println("Is Whole:");
 #endif
-            s32 base;
+            s32 base = 0;
             while(index < length) {
-#ifdef debug_variant
-                Serial.print(string.charAt(index) - 0x30, DEC);
-#endif
                 base = pow(10, length - index - 1);
                 value += (string.charAt(index) - 0x30) * base;
+#ifdef debug_variant
+                Serial.print(length, DEC);
+				Serial.print(" ");
+                Serial.print(index, DEC);
+				Serial.print(" ");
+                Serial.print(string.charAt(index) - 0x30, DEC);
+				Serial.print(" ");
+                Serial.print(base, DEC);
+				Serial.print(" ");
+                Serial.print(value, DEC);
+				Serial.println(" ");
+#endif
                 index++;
             }
-#ifdef debug_variant
-			Serial.println("\"");
-#endif
         }
-
-        if(negative) {
-            value *= -1;
-        }
-
 		
 		var.fvalue = value * pow(10, exp);
+        if(negative) {
+            var.fvalue *= -1;
+        }
 #ifdef debug_variant
 		Serial.print("value=");
         Serial.print(value, DEC);

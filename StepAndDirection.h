@@ -388,7 +388,6 @@ public:
 #ifdef debug_stp
 	Serial.print("chooseBestMove ");
 	Serial.print(String(steps,DEC));
-	Serial.println(" steps");
 #endif
 
         if(steps == 0) {
@@ -396,10 +395,23 @@ public:
         }
 
 		config->updateDestinationPosition(steps);
+#ifdef debug_stp
+	Serial.print("->");
+	Serial.print(abs(steps), DEC);
+	Serial.print(" >= ");
+	Serial.print((sigSteps.toInt() * 2.5), DEC);
+	Serial.print(" is ");	
+#endif
         if(abs(steps) >= (sigSteps.toInt() * 2.5)) {
+#ifdef debug_stp
+	Serial.println("true");
+#endif
             modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient, steps);
         }
         else {
+#ifdef debug_stp
+	Serial.println("false");
+#endif
             Variant period(1, 0);
             period /= sigLow;
             buffer.push(Vector(steps, period));
@@ -407,7 +419,7 @@ public:
         start();
     }
     /// relative move
-    void move(Variant units) {
+    bool move(Variant units) {
         bool ok;
 #ifdef debug_stp
 	Serial.print("move ");
@@ -416,19 +428,29 @@ public:
 #endif
         units = config->unitConversion(units, &ok);
 #ifdef debug_stp
-	Serial.print(units.toString());
-	Serial.println(" steps");
+			Serial.print(units.toString());
+			Serial.println(" steps");
 #endif
 
-        if(ok) {
+		if(!running && ok) {
+#ifdef debug_stp
+			Serial.println("");
+#endif
             chooseBestMove(units.toInt());
+			return true;
         }
+		else {		
+#ifdef debug_stp
+			Serial.println("no move");
+#endif
+			return false;
+		}
     }
     /// absolute move
-    void moveTo(Variant units) {
+    bool moveTo(Variant units) {
         bool ok;
 #ifdef debug_stp
-	Serial.print("move ");
+	Serial.print("moveTo ");
 	Serial.print(units.toString());
 	Serial.print("->");
 #endif
@@ -437,15 +459,21 @@ public:
 	Serial.print(units.toString());
 	Serial.print("->");
 #endif
-        units -= config->getCurrentPosition();
+		if(!running && ok) {
+			units -= config->getCurrentPosition();
 #ifdef debug_stp
-	Serial.print(units.toString());
-	Serial.println(" steps");
+			Serial.print(units.toString());
+			Serial.println(" steps");
 #endif
-
-        if(ok) {
             chooseBestMove(units.toInt());
+			return true;
         }
+		else {		
+#ifdef debug_stp
+			Serial.println("no move");
+#endif
+			return false;
+		}
     }
 	void moveFreq(Variant units, Variant frequency) {
 		bool ok;
@@ -634,17 +662,17 @@ public:
                 sigCoefficient = parser.toVariant().toFloat();
 			}
             else if(parser.compare("getsig")) { /// getsig (get sigmoid properties)
-                Serial.print(sigLow.toString());
-                Serial.print(" ");
-                Serial.print(sigHigh.toString());
-                Serial.print(" ");
-                Serial.print(sigSteps.toString());
-                Serial.print(" ");
-                Serial.println(parser.toVariant().toString());
+                parser.print(sigLow.toString());
+                parser.print(" ");
+                parser.print(sigHigh.toString());
+                parser.print(" ");
+                parser.print(sigSteps.toString());
+                parser.print(" ");
+                parser.println(parser.toVariant().toString());
             }
             else if(parser.compare("units")) {
                 parser.nextToken();
-                Serial.println(config->unitConversion(parser.toVariant()).toString());
+                parser.println(config->unitConversion(parser.toVariant()).toString());
             }
             else if(parser.compare("conv")) {
                 parser.nextToken();
@@ -661,11 +689,11 @@ public:
 			 */
             else if(parser.compare("so")) { /// SO Stepper Off (disable driver)
                 setEnabled(false);
-                Serial.println("OK");
+                parser.println("OK");
             }
             else if(parser.compare("sp")) { /// SP Stepper Powered (enable driver)
                 setEnabled(true);
-                Serial.println("OK");
+                parser.println("OK");
             }
             else if(parser.compare("rc")) { /// RC (read current position)
 				parser.println(String(getCurrentPosition(), DEC));
@@ -689,41 +717,41 @@ public:
                 parser.nextToken();
                 setCurrentPosition(parser.toVariant().toInt());
                 setDestinationPosition(parser.toVariant().toInt());
-                Serial.println("OK");
+                parser.println("OK");
             }
             else if(parser.compare("h0")) { /// H0 (stop the motor from running)
                 parser.nextToken();
 				halt_immediatly();
-                Serial.println("OK");
+                parser.println("OK");
             }
             else if(parser.compare("h+")) { /// H+ (absolute move the limit max)
-                moveTo(config->limit_max);
-                Serial.println("OK");
+                if(!moveTo(config->limit_max)) parser.print("N");
+                parser.println("OK");
             }
             else if(parser.compare("h-")) { /// H- (absolute move the limit min)
-                moveTo(config->limit_min);
-                Serial.println("OK");
+                if(!moveTo(config->limit_min)) parser.print("N");
+                parser.println("OK");
             }
             else if(parser.compare("ii")) { /// II n (Move relative to position n)
                 parser.nextToken();
-                move(parser.toVariant());
-                Serial.println("OK");
+                if(!move(parser.toVariant())) parser.print("N");
+                parser.println("OK");
             }
             else if(parser.compare("mi")) { /// MI n (Move absolute to position n)
                 parser.nextToken();
-                moveTo(parser.toVariant());
-                Serial.println("OK");
+                if(!moveTo(parser.toVariant())) parser.print("N");
+                parser.println("OK");
             }
-            else if(parser.compare("mf")) { /// MI m n (Move absolute to position m at frequency n)
+            else if(parser.compare("mf")) { /// MF m n (Move absolute to position m at frequency n, use only for testing)
                 parser.nextToken();
                 Variant units = parser.toVariant();
                 parser.nextToken();
                 Variant frequency = parser.toVariant();
                 moveFreq(units, frequency);
-                Serial.println("OK");
+                parser.println("OK");
             }
 			else if(parser.compare("v?")) { /// V? (Return command set version)
-                Serial.println("STP100 V2.3");
+                parser.println("STP100 V2.3");
             }
         }
     }
