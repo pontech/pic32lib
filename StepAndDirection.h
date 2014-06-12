@@ -391,12 +391,15 @@ public:
 #endif
 
         if(steps == 0) {
+#ifdef debug_stp
+			Serial.println(" steps");
+#endif
             return;
         }
 
 		config->updateDestinationPosition(steps);
 #ifdef debug_stp
-	Serial.print("->");
+	Serial.print(" -> ");
 	Serial.print(abs(steps), DEC);
 	Serial.print(" >= ");
 	Serial.print((sigSteps.toInt() * 2.5), DEC);
@@ -418,51 +421,42 @@ public:
         }
         start();
     }
-    /// relative move
+    /// relative move (wrapper)
     bool move(Variant units) {
-        bool ok;
-#ifdef debug_stp
-	Serial.print("move ");
-	Serial.print(units.toString());
-	Serial.print("->");
-#endif
-        units = config->unitConversion(units, &ok);
-#ifdef debug_stp
-			Serial.print(units.toString());
-			Serial.println(" steps");
-#endif
-
-		if(!running && ok) {
-#ifdef debug_stp
-			Serial.println("");
-#endif
-            chooseBestMove(units.toInt());
-			return true;
-        }
-		else {		
-#ifdef debug_stp
-			Serial.println("no move");
-#endif
-			return false;
-		}
+		return moveAbsRel(units, false);
     }
-    /// absolute move
+    /// absolute move (wrapper)
     bool moveTo(Variant units) {
+		return moveAbsRel(units, true);
+    }
+	
+    /// combined absolute and relative move function
+    bool moveAbsRel(Variant units, bool absolute) {
         bool ok;
 #ifdef debug_stp
-	Serial.print("moveTo ");
+	Serial.print("moveAbsRel ");
 	Serial.print(units.toString());
-	Serial.print("->");
 #endif
-        units = config->unitConversion(units, &ok);
+		
+		units = config->unitConversion(units, &ok);
 #ifdef debug_stp
-	Serial.print(units.toString());
-	Serial.print("->");
+		Serial.print("->");
+		Serial.print(units.toString());
 #endif
 		if(!running && ok) {
-			units -= config->getCurrentPosition();
+			if(absolute) {
+				units -= config->getCurrentPosition();
 #ifdef debug_stp
-			Serial.print(units.toString());
+				Serial.print("->");
+				Serial.print(units.toString());
+#endif
+			}
+			else {
+#ifdef debug_stp
+				Serial.print("->rel");
+#endif
+			}
+#ifdef debug_stp
 			Serial.println(" steps");
 #endif
             chooseBestMove(units.toInt());
@@ -474,7 +468,7 @@ public:
 #endif
 			return false;
 		}
-    }
+	}
 	void moveFreq(Variant units, Variant frequency) {
 		bool ok;
 #ifdef debug_stp
