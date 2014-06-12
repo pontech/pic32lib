@@ -149,6 +149,7 @@ public:
 
         homeSensorPort = 0;
         homeSensorPolarity = false;
+		homeSensorPersistent = false;
 #endif
 
         defaultConfig = new StepConfig();
@@ -370,7 +371,13 @@ public:
     bool getHomeSensorStatus() {
         return (homeSensorPort == 0) ? true : false;
     }
+    void setHomeSensorPersistent(int pin, bool desiredState = false, bool desiredPersistentDirection = false) {
+		setHomeSensor(pin, desiredState);
+		homeSensorPersistent = true;
+		homeSensorPersistentDirection = desiredPersistentDirection;
+	}
     void setHomeSensor(int pin, bool desiredState = false) {
+		homeSensorPersistent = false;
         if(pin == 0) {
             homeSensorPort = (p32_ioport *)0;
             homeSensorBit  = 0;
@@ -378,7 +385,7 @@ public:
         else {
             homeSensorPort = (p32_ioport *)portRegisters(digitalPinToPort(pin));
             homeSensorBit = digitalPinToBitMask(pin);
-            previousState = (bool)(homeSensorPort->port.reg & homeSensorBit);
+            previousHomeState = (bool)(homeSensorPort->port.reg & homeSensorBit);
         }
         homeSensorPolarity = desiredState;
         //        Serial.println((us32)homeSensorPort, DEC);
@@ -458,6 +465,15 @@ public:
 #ifdef debug_stp
 			Serial.println(" steps");
 #endif
+			// Don't move if we have persistent home sensors and we are sitting on the sensor
+			if(homeSensorPersistent) {
+				if( readHomeState() == homeSensorPolarity ) {
+#ifdef debug_stp
+					Serial.println("Sitting on home sensor.");
+#endif
+					if( homeSensorPersistentDirection == (units > 0) ) return false;
+				}
+			}
             chooseBestMove(units.toInt());
 			return true;
         }
@@ -751,23 +767,17 @@ public:
 
     uint32_t interruptPeriod;
 
+	inline bool readHomeState() {
+		return (bool)(homeSensorPort->port.reg & homeSensorBit);
+	}
 private:
     inline bool readHomeSensor() {
         if(homeSensorPort != 0) {
-            bool input = (bool)(homeSensorPort->port.reg & homeSensorBit);
-            if(input == 0 && previousState != 0) {
-                previousState = 0;
-                if(!homeSensorPolarity) {
-                    return true;
-                }
+            bool currentHomeState = readHomeState();
+            if(currentHomeState != previousHomeState) {
+                previousHomeState = currentHomeState;
+                return (currentHomeState == homeSensorPolarity);
             }
-            else if(input == 1 && previousState != 1) {
-                previousState = 1;
-                if(homeSensorPolarity) {
-                    return true;
-                }
-            }
-//            return (bool)(homeSensorPort->port.reg & homeSensorBit) == homeSensorPolarity;
         }
         return false;
     }
@@ -775,7 +785,9 @@ private:
     inline void step() {
         if(readHomeSensor()) {
             halt_immediatly();
-            homeSensorPort = 0;
+			if( !homeSensorPersistent ) {
+				homeSensorPort = 0;
+			}
             return;
         }
 #ifdef fast_io
@@ -824,6 +836,8 @@ private:
     us8 pin_step;
     us8 pin_direction;
 #endif
+    bool homeSensorPersistent; /// true = persistent single direction, false = one shot
+    bool homeSensorPersistentDirection; /// homeSensorPersistentPolarity matches directionBit
 
     // sigmoid related
     Variant sigLow;
@@ -832,7 +846,7 @@ private:
     float sigCoefficient;
 
     bool running;
-    bool previousState;
+    bool previousHomeState;
     Vector vector; 	///< The currently running vector in the interrupt
     us32 currentSkip;	///< The amount of time (interrupt time base counts) that needs to be skipped before the next step
     CircleBuffer buffer;
