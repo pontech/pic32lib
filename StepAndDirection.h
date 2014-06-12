@@ -400,12 +400,12 @@ public:
 		config->updateDestinationPosition(steps);
 #ifdef debug_stp
 	Serial.print(" -> ");
-	Serial.print(abs(steps), DEC);
+	Serial.print(fabs((double)steps), DEC);
 	Serial.print(" >= ");
 	Serial.print((sigSteps.toInt() * 2.5), DEC);
 	Serial.print(" is ");	
 #endif
-        if(abs(steps) >= (sigSteps.toInt() * 2.5)) {
+        if(fabs((double)steps) >= (sigSteps.toInt() * 2.5)) {
 #ifdef debug_stp
 	Serial.println("true");
 #endif
@@ -428,8 +428,7 @@ public:
     /// absolute move (wrapper)
     bool moveTo(Variant units) {
 		return moveAbsRel(units, true);
-    }
-	
+    }	
     /// combined absolute and relative move function
     bool moveAbsRel(Variant units, bool absolute) {
         bool ok;
