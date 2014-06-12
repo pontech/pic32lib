@@ -55,6 +55,14 @@ public:
             conversion_b = b;
             conversion_p = pow(10, precision);
         }
+#ifdef debug_stp
+		Serial.print("setConversion m=");
+        Serial.print(conversion_mx.toString());
+		Serial.print(", b=");
+        Serial.print(conversion_b.toString());
+		Serial.print(", p=");
+        Serial.println(conversion_p.toString());
+#endif
     }
     void setOffset(Variant b) {
         conversion_b = b;
@@ -163,7 +171,7 @@ public:
     }
 
     // todo: verify skip starts at 1
-    void sharedInterrupt(Variant timebase) {
+    inline void sharedInterrupt(Variant timebase) {
         if(vector.steps == 0 && currentSkip <= 0 && running) {
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
@@ -439,6 +447,38 @@ public:
             chooseBestMove(units.toInt());
         }
     }
+	void moveFreq(Variant units, Variant frequency) {
+		bool ok;
+#ifdef debug_stp
+		Serial.print("moveFreq units=");
+        Serial.print(units.toString());
+#endif
+        units = config->unitConversion(units, &ok);
+
+        if(units.toInt() == 0) {
+            return;
+        }
+
+		config->updateDestinationPosition(units.toInt());
+		Variant period(1, 0);
+		period /= frequency;
+
+#ifdef debug_stp
+		Variant timebase(31250, -9);
+		Serial.print(", steps=");
+        Serial.print(units.toString());
+        Serial.print(", frequency=");
+        Serial.print(frequency.toString());
+        Serial.print(", period=");
+        Serial.print(period.toString());
+        Serial.print(", time=");
+        Serial.print(timebase.toString());
+        Serial.print(", skip=");
+        Serial.println((period / timebase).toString());
+#endif
+		buffer.push(Vector(units.toInt(), period));
+        start();
+	}
     StepConfig* getDefaultConfig() {
         return defaultConfig;
     }
@@ -513,7 +553,7 @@ public:
             }
             parser.nextToken();
 
-			#ifdef debug_stp
+#ifdef debug_stp
         parser.print("motor command:\"");
         parser.print(parser.toString());
         parser.println("\"");
@@ -538,7 +578,7 @@ public:
                 parser.println("OK Pairs");
                 start();
             }
-            else if(parser.compare("enable")) { /// enable true|false
+            else if(parser.compare("enable")) { /// enable true|false (enable the stepper driver)
                 parser.nextToken();
                 setEnabled(parser.toVariant().toBool());
             }
@@ -580,7 +620,7 @@ public:
                 parser.nextToken();
                 moveTo(parser.toVariant());
             }
-            else if(parser.compare("setsig")) {
+            else if(parser.compare("setsig")) { /// setsig sigLow sigHigh sigSteps sigCoefficient (set sigmoid properties)
                 parser.nextToken();
                 sigLow = parser.toVariant();
 
@@ -592,8 +632,8 @@ public:
 
                 parser.nextToken();
                 sigCoefficient = parser.toVariant().toFloat();
-
-                Serial.print("Sig: ");
+			}
+            else if(parser.compare("getsig")) { /// getsig (get sigmoid properties)
                 Serial.print(sigLow.toString());
                 Serial.print(" ");
                 Serial.print(sigHigh.toString());
@@ -601,7 +641,6 @@ public:
                 Serial.print(sigSteps.toString());
                 Serial.print(" ");
                 Serial.println(parser.toVariant().toString());
-                Serial.println("OK");
             }
             else if(parser.compare("units")) {
                 parser.nextToken();
@@ -675,7 +714,15 @@ public:
                 moveTo(parser.toVariant());
                 Serial.println("OK");
             }
-            else if(parser.compare("v?")) { /// V? (Return command set version)
+            else if(parser.compare("mf")) { /// MI m n (Move absolute to position m at frequency n)
+                parser.nextToken();
+                Variant units = parser.toVariant();
+                parser.nextToken();
+                Variant frequency = parser.toVariant();
+                moveFreq(units, frequency);
+                Serial.println("OK");
+            }
+			else if(parser.compare("v?")) { /// V? (Return command set version)
                 Serial.println("STP100 V2.3");
             }
         }

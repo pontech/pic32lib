@@ -7,290 +7,218 @@
 class Variant {
 public:
     Variant(s32 newValue = 0, s8 newExp = 0) {
-        value = newValue;
-        exp = newExp;
+		fvalue = newValue * pow(10, newExp);
         reduce(this);
     }
-
     Variant(float newValue, unsigned int precision = 3) {
-        exp = -precision;
-        precision = pow(10, precision);
-        value = newValue * precision;
+		fvalue = newValue;
         reduce(this);
     }
-
     Variant(double newValue, unsigned int precision = 6) {
-        exp = -precision;
-        precision = pow(10, precision);
-        value = newValue * precision;
+		fvalue = newValue;
         reduce(this);
     }
-
     Variant(const char *text) {
         Variant var = fromString(text);
-        this->value = var.value;
-        this->exp = var.exp;
+        this->fvalue = var.fvalue;
     }
 
-    bool operator==(const Variant &other)
-    {
-        if(this->value == other.value && this->exp == other.exp) {
+    bool operator==(const Variant &other) {
+        if(this->fvalue == other.fvalue) {
             return true;
         }
         return false;
     }
-
-    bool operator!=(const Variant &other)
-    {
-        if(this->value != other.value || this->exp != other.exp) {
+    bool operator!=(const Variant &other) {
+        if(this->fvalue != other.fvalue) {
             return true;
         }
         return false;
     }
-
-    bool operator<(const Variant &other)
-    {
-        int minimum = this->exp;
-        if(minimum < other.exp) {
-            minimum = other.exp;
-        }
-
-        s32 temp1 = this->value * pow(10, this->exp - minimum);
-        s32 temp2 = other.value * pow(10, other.exp - minimum);
-
-        if(temp1 < temp2) {
+    bool operator<(const Variant &other) {
+        if(this->fvalue < other.fvalue) {
             return true;
         }
         return false;
     }
-
-    bool operator<=(const Variant &other)
-    {
+    bool operator<=(const Variant &other) {
         if(*this == other) {
             return true;
         }
         return *this < other;
     }
-
-    bool operator>(const Variant &other)
-    {
-        int minimum = this->exp;
-        if(minimum < other.exp) {
-            minimum = other.exp;
-        }
-
-        s32 temp1 = this->value * pow(10, this->exp - minimum);
-        s32 temp2 = other.value * pow(10, other.exp - minimum);
-
-        if(temp1 > temp2) {
+    bool operator>(const Variant &other) {
+        if(this->fvalue > other.fvalue) {
             return true;
         }
         return false;
     }
-
-    bool operator>=(const Variant &other)
-    {
+    bool operator>=(const Variant &other) {
         if(*this == other) {
             return true;
         }
         return *this > other;
     }
-
     Variant operator+(Variant other) {
         Variant result;
-
-        if(abs(this->exp - other.exp) < 10) {
-            result.exp = this->exp < other.exp ? this->exp : other.exp;
-            result.value = this->value * pow(10, this->exp - result.exp);
-            result.value += other.value * pow(10, other.exp - result.exp);
-        }
-
+		result.fvalue = this->fvalue + other.fvalue;
         reduce(&result);
         return result;
     }
-
     Variant operator-(Variant other) {
         Variant result;
-
-        if(*this == other) {
-            return result;
-        }
-
-        if(abs(this->exp - other.exp) < 10) {
-            result.exp = this->exp < other.exp ? this->exp : other.exp;
-            result.value = this->value * pow(10, this->exp - result.exp);
-            result.value -= other.value * pow(10, other.exp - result.exp);
-        }
-
-        if(result.value == 0) {
-            result.exp = 0;
-            result.value = 0;
-            return result;
-        }
-
+		result.fvalue = this->fvalue - other.fvalue;
         reduce(&result);
         return result;
     }
-
     Variant operator*(Variant other) {
-        Variant result = *this;
-        if(result.value == 0 || other.value == 0) {
-            result.value = 0;
-            result.exp = 0;
-        }
-        else {
-            result.value *= other.value;
-            result.exp += other.exp;
-            reduce(&result);
-        }
+        Variant result;
+		result.fvalue = this->fvalue * other.fvalue;
+		reduce(&result);
         return result;
     }
-
     // todo: add dynamic precision
     Variant operator/(Variant other) {
         Variant result = *this;
-        if(result.value == 0 || other.value == 0) {
-            result.value = 0;
-            result.exp = 0;
-        }
-        else {
-            int precision = 5;
-            result.value *= pow(10, precision);
-            result.value /= other.value;
-            result.exp = result.exp - other.exp - precision;
-            reduce(&result);
-        }
+		result.fvalue = this->fvalue / other.fvalue;
+		reduce(&result);
         return result;
     }
-
     Variant operator=(Variant other) {
-        this->value = other.value;
-        this->exp = other.exp;
+        this->fvalue = other.fvalue;
         return *this;
     }
-
     Variant operator+=(Variant other) {
-        Variant result = *this + other;
-        *this = result;
+        *this = *this + other;
         return *this;
     }
-
     Variant operator-=(Variant other) {
         Variant result = *this - other;
         *this = result;
         return *this;
     }
-
     Variant operator*=(Variant other) {
-        Variant result = *this * other;
-        *this = result;
+        *this = *this * other;
         return *this;
     }
-
     Variant operator/=(Variant other) {
-        Variant result = *this / other;
-        *this = result;
+        *this = *this / other;
         return *this;
     }
-
-    static Variant fromString(String string)
-    {
+    static Variant fromString(String string) {
         Variant var;
-
+		us32 value = 0;
+		s8 exp = 0;
+		
         string = string.toLowerCase();
         us8 index = 0;
         us8 length = string.length();
         bool negative = false;
 
         if(string.startsWith("-")) {
-//            Serial.println("Is Negative");
+#ifdef debug_variant
+            Serial.println("Is Negative");
+#endif
             index += 1;
             negative = true;
         }
 
         if(string.startsWith("0x")) { // Hexadecimal
-//            Serial.println("Is Hex");
+#ifdef debug_variant
+            Serial.println("Is Hex");
+#endif
             index += 2;
             do {
-                var.value <<= 4;
-                var.value |= Variant::hexCharToNibble(string.charAt(index++));
+                value <<= 4;
+                value |= Variant::hexCharToNibble(string.charAt(index++));
             }
             while(index < length);
         }
         else if(string.startsWith("0b")) { // Binary
-//            Serial.println("Is Bin");
+#ifdef debug_variant
+            Serial.println("Is Bin");
+#endif
             index += 2;
         }
         else if(string.indexOf("e") != -1) { // Exp.Notation
-//            Serial.println("Is Exp.Notation");
+#ifdef debug_variant
+            Serial.println("Is Exp.Notation");
+#endif
             int pos = string.indexOf("e", index);
-            var.value = (s32)(string.substring(index, pos).toInt());
+            value = (s32)(string.substring(index, pos).toInt());
             pos++;
-            var.exp = (s8)(string.substring(pos, length).toInt());
-            reduce(&var);
+            exp = (s8)(string.substring(pos, length).toInt());
         }
         else if(string.indexOf(".") != -1) { // Real Number
-//            Serial.println("Is Real");
+#ifdef debug_variant
+            Serial.println("Is Real");
+#endif
             int pos = string.indexOf(".", index);
-            var.value = string.substring(index, pos).toInt();
+            value = string.substring(index, pos).toInt();
 
             index = pos + 1;
             while(index < length) {
-                var.value *= 10;
-                var.value += (string.charAt(index++) - 0x30);
-                var.exp--;
+                value *= 10;
+                value += (string.charAt(index++) - 0x30);
+                exp--;
             }
         }
         else { // Whole Number
-//            Serial.println("Is Whole");
+#ifdef debug_variant
+            Serial.print("Is Whole \"");
+#endif
             s32 base;
             while(index < length) {
-//                Serial.println(string.charAt(index) - 0x30, DEC);
+#ifdef debug_variant
+                Serial.print(string.charAt(index) - 0x30, DEC);
+#endif
                 base = pow(10, length - index - 1);
-                var.value += (string.charAt(index) - 0x30) * base;
+                value += (string.charAt(index) - 0x30) * base;
                 index++;
             }
+#ifdef debug_variant
+			Serial.println("\"");
+#endif
         }
 
         if(negative) {
-            var.value *= -1;
+            value *= -1;
         }
 
-        if(var.value == 0) {
+        if(value == 0) {
             if(string == "true") {
-                var.value = 1;
+                value = 1;
             }
         }
 
+		
+		var.fvalue = value * pow(10, exp);
+#ifdef debug_variant
+		Serial.print("value=");
+        Serial.print(value, DEC);
+		Serial.print(",exp=");
+        Serial.print(exp, DEC);
+		Serial.print(",fvalue=");
+        Serial.println(var.toString());
+#endif
         return var;
     }
-
-    bool toBool()
-    {
-        return (value > 0) ? true : false;
+    bool toBool() {
+        return (fvalue > 0) ? true : false;
     }
-
-    s32 toInt()
-    {
-        s32 temp = value;
-        return temp *= pow(10, exp);
+    s32 toInt() {
+        return (s32)fvalue;
     }
-
-    float toFloat()
-    {
-        float temp = value;
-        return temp *= pow(10, exp);
+    float toFloat() {
+        return fvalue;
     }
-
-    double toDouble()
-    {
-        double temp = value;
-        return temp *= pow(10, exp);
+    double toDouble() {
+        return fvalue;
     }
-
-    String toString()
-    {
-        return String(value, DEC) + "e" + String(exp, DEC);
+    String toString() {
+		char temp[50];
+		sprintf(temp, "%1.3e", fvalue);		
+        return String(temp);
     }
 
 private:
@@ -387,18 +315,9 @@ private:
 //        Serial.println(right < "100e3");
 //    }
 
-    static inline void reduce(Variant *var)
-    {
-        if(var->value != 0) {
-            while((var->value % 10 == 0) || abs(var->value) >= 100000) {
-                var->value /= 10;
-                var->exp++;
-            }
-        }
+    static inline void reduce(Variant *var) {
     }
-
-    static inline us8 hexCharToNibble(us8 c)
-    {
+    static inline us8 hexCharToNibble(us8 c) {
         if('0' <= c && c <= '9') {
             c -= 0x30;
         }
@@ -408,8 +327,7 @@ private:
         return c & 0xf;
     }
 
-    s32 value;
-    s8 exp;
+	double fvalue;
 };
 
 #endif // VARIANT_H
