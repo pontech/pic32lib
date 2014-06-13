@@ -120,25 +120,40 @@ private:
 
 // todo: control direction polarity when creating vectors
 class StepAndDirection {
+
+////////////////////////////////////////////////
+// BigEasy Kard Info
+////////////////////////////////////////////////
+// GPIO | REV C   | REV C1  | REV D   |
+// -------------------------------------
+//  0   | Step    | Step    | Step    |
+//  1   | Dir     | Dir     | Dir     |
+//  2   | !Enable | !Enable | !Enable |
+//  3   | Sleep   | Sleep   | MS1     |
+//  4   | MS3     | MS2     | MS2     |
+
 public:
-    StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep, us8 pin_ms2) {
-		StepAndDirection::starts_with = "stp?";
+    StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep_ms1, us8 pin_ms3_ms2, char *command_prefix = "stp0", char *kard_rev = "C" ) {
         StepAndDirection::motor = motor;
 #ifndef fast_io
         StepAndDirection::pin_step = pin_step;
         StepAndDirection::pin_direction = pin_direction;
 #endif
         StepAndDirection::pin_enable = pin_enable;
-        StepAndDirection::pin_sleep = pin_sleep;
+        StepAndDirection::pin_sleep_ms1 = pin_sleep_ms1;
+        StepAndDirection::pin_ms3_ms2 = pin_ms3_ms2;
 
+		StepAndDirection::kard_rev = kard_rev;
+		StepAndDirection::command_prefix = command_prefix;
+		
         pinMode(pin_step, OUTPUT);
         pinMode(pin_direction, OUTPUT);
         pinMode(pin_enable, OUTPUT);
-        pinMode(pin_sleep, OUTPUT);
-        pinMode(pin_ms2, OUTPUT);
-        digitalWrite(pin_enable, HIGH); // 0 = enabled
-        digitalWrite(pin_sleep, HIGH);  // 1 = enabled
-        digitalWrite(pin_ms2, HIGH);  // 0 = full step, 1 = quarter step
+        pinMode(pin_sleep_ms1, OUTPUT);
+        pinMode(pin_ms3_ms2, OUTPUT);
+		
+		setEnabled(true); // true = enabled, false = disabled
+		microsteps_per_step(4); // Initial step mode
 
 #ifdef fast_io
         stepPort = (p32_ioport *)portRegisters(digitalPinToPort(pin_step));
@@ -163,14 +178,71 @@ public:
         // sigmoid defaults
         setSigmoid(Variant(1, 3), Variant(1, 4), Variant(25, 1), 3);
     }
-    StepAndDirection(us8 motor, us8 card) {
-        *this = StepAndDirection(motor, KardIO[card][0], KardIO[card][1], KardIO[card][2], KardIO[card][3], KardIO[card][4]);
-    }
-    StepAndDirection(us8 motor, us8 card, char *starts_with) {
-        *this = StepAndDirection(motor, card);
-		StepAndDirection::starts_with = starts_with;
+    StepAndDirection(us8 motor, us8 card, char *command_prefix = "stp?", char *kard_rev = "C") {
+        *this = StepAndDirection(motor, KardIO[card][0], KardIO[card][1], KardIO[card][2], KardIO[card][3], KardIO[card][4], command_prefix, kard_rev);
     }
 
+	/** 
+	* void microsteps_per_step(us8 microsteps)
+    *
+	*************************************************
+	* REV C/C1 Step Truth Table
+	* REV C: MS1, MS2 pulled high (MS3 Controlled)
+	* REV C1: MS1, MS3 pulled low (MS2 Controlled)
+	*************************************************
+	* MS1 MS2 MS3 Step Mode  Excitation 
+	*  L   L   L  Full       2 Phase
+	*  H   L   L  Half       1-2 Phase
+	*  L   H   L  Quarter    W1-2 Phase
+	*  H   H   L  Eighth     2W1-2 Phase
+	*  H   H   H  Sixteenth  4W1-2 Phase
+	*************************************************
+    *
+	*************************************************
+	* REV D Step Truth Table
+	*************************************************
+	* MS1 MS2 Step Mode      Excitation
+	*  L   L  Full           2 Phase
+	*  H   L  Half           1-2 Phase
+	*  L   H  Quarter        W1-2 Phase
+	*  H   H  Sixteenth      4W1-2 Phase
+	*************************************************/
+
+	void microsteps_per_step(us8 microsteps) {
+		if( strncmp(kard_rev, "C", 1) == 0) {
+			switch(microsteps) {
+				case 1: // REV C1
+				case 8: // REV C
+					digitalWrite(pin_ms3_ms2, LOW);
+					break;
+				case 4:  // REV C1
+				case 16: // REV C
+					digitalWrite(pin_ms3_ms2, HIGH);
+					break;
+			}
+		}
+		else if( strcmp(kard_rev, "D") == 0) {
+			switch(microsteps) {
+				case 1:
+					digitalWrite(pin_sleep_ms1, LOW);
+					digitalWrite(pin_ms3_ms2, LOW);
+					break;
+				case 2:
+					digitalWrite(pin_sleep_ms1, HIGH);
+					digitalWrite(pin_ms3_ms2, LOW);
+					break;
+				case 4:
+					digitalWrite(pin_sleep_ms1, LOW);
+					digitalWrite(pin_ms3_ms2, HIGH);
+					break;
+				case 16:
+					digitalWrite(pin_sleep_ms1, HIGH);
+					digitalWrite(pin_ms3_ms2, HIGH);
+					break;
+			}
+		}
+	}
+	
     // todo: verify skip starts at 1
     inline void sharedInterrupt(Variant timebase) {
         if(vector.steps == 0 && currentSkip <= 0 && running) {
@@ -567,8 +639,15 @@ public:
     }
 	/// Assert or de-assert the enable line for the stepper driver
     void setEnabled(bool enabled) {
-        digitalWrite(pin_enable, !enabled);
-    }
+		if( strncmp(kard_rev, "C", 1) == 0) { // REV C/C1
+			digitalWrite(pin_enable, !enabled); // 0 = enabled
+			digitalWrite(pin_sleep_ms1, enabled);  // 1 = enabled
+		}
+		else if( strcmp(kard_rev, "D") == 0) {
+			digitalWrite(pin_enable, !enabled); // 0 = enabled
+		}
+	}
+
     void setSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient) {
         sigLow = begin;
         sigHigh = end;
@@ -580,9 +659,16 @@ public:
 	 * Parse commands received from the TokenParser
 	 */
     void command(TokenParser &parser) {
-        if(parser.startsWith(starts_with)) {
+#ifdef debug_stp
+        parser.print("stepper parser command:\"");
+        parser.print(parser.toString());
+        parser.print("\" \"");
+        parser.print(command_prefix);
+        parser.println("\"");
+#endif
+        if(parser.startsWith(command_prefix)) {
             parser.save();
-            parser.advanceTail(strlen(starts_with) - 1);
+            parser.advanceTail(strlen(command_prefix) - 1);
 
             if(motor != parser.toVariant().toInt()) {
                 parser.restore();
@@ -759,6 +845,12 @@ public:
                 moveFreq(units, frequency);
                 parser.println("OK");
             }
+            else if(parser.compare("sm")) { /// SM n (Set step mode, n = microsteps (1,2,4,8,16) per step)
+                parser.nextToken();
+                Variant microsteps = parser.toVariant();
+                microsteps_per_step(microsteps.toInt());
+                parser.println("OK");
+            }
 			else if(parser.compare("v?")) { /// V? (Return command set version)
                 parser.println("STP100 V2.3");
             }
@@ -814,8 +906,10 @@ private:
 
     us8 motor;
     us8 pin_enable;
-    us8 pin_sleep;
-	char *starts_with;
+    us8 pin_sleep_ms1;
+	us8 pin_ms3_ms2;
+	char *command_prefix;
+	char *kard_rev;
     StepConfig *config;
     StepConfig *defaultConfig;
 
