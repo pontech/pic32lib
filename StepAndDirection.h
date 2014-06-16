@@ -153,7 +153,7 @@ public:
         pinMode(pin_ms3_ms2, OUTPUT);
 		
 		setEnabled(true); // true = enabled, false = disabled
-		microsteps_per_step(4); // Initial step mode
+		setMicrostepsPerStep(4); // Initial step mode
 
 #ifdef fast_io
         stepPort = (p32_ioport *)portRegisters(digitalPinToPort(pin_step));
@@ -183,7 +183,7 @@ public:
     }
 
 	/** 
-	* void microsteps_per_step(us8 microsteps)
+	* void setMicrostepsPerStep(us8 microsteps)
     *
 	*************************************************
 	* REV C/C1 Step Truth Table
@@ -208,7 +208,8 @@ public:
 	*  H   H  Sixteenth      4W1-2 Phase
 	*************************************************/
 
-	void microsteps_per_step(us8 microsteps) {
+	bool setMicrostepsPerStep(us8 microsteps) {
+		bool sucessful = true;
 		if( strncmp(kard_rev, "C", 1) == 0) {
 			switch(microsteps) {
 				case 1: // REV C1
@@ -218,6 +219,9 @@ public:
 				case 4:  // REV C1
 				case 16: // REV C
 					digitalWrite(pin_ms3_ms2, HIGH);
+					break;
+				default:
+					sucessful = false;
 					break;
 			}
 		}
@@ -239,8 +243,13 @@ public:
 					digitalWrite(pin_sleep_ms1, HIGH);
 					digitalWrite(pin_ms3_ms2, HIGH);
 					break;
+				default:
+					sucessful = false;
+					break;
 			}
 		}
+		if( sucessful ) this->microsteps = microsteps;
+		return sucessful;
 	}
 	
     // todo: verify skip starts at 1
@@ -638,6 +647,9 @@ public:
         return !running;
     }
 	/// Assert or de-assert the enable line for the stepper driver
+    bool getEnabled() {
+		return !digitalRead(pin_enable);
+	}
     void setEnabled(bool enabled) {
 		if( strncmp(kard_rev, "C", 1) == 0) { // REV C/C1
 			digitalWrite(pin_enable, !enabled); // 0 = enabled
@@ -647,6 +659,7 @@ public:
 			digitalWrite(pin_enable, !enabled); // 0 = enabled
 		}
 	}
+	
 
     void setSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient) {
         sigLow = begin;
@@ -847,13 +860,28 @@ public:
             }
             else if(parser.compare("sm")) { /// SM n (Set step mode, n = microsteps (1,2,4,8,16) per step)
                 parser.nextToken();
-                Variant microsteps = parser.toVariant();
-                microsteps_per_step(microsteps.toInt());
+                Variant new_microsteps = parser.toVariant();
+                if(!setMicrostepsPerStep(new_microsteps.toInt())) parser.print("N");
                 parser.println("OK");
             }
 			else if(parser.compare("v?")) { /// V? (Return command set version)
                 parser.println("STP100 V2.3");
             }
+			else if(parser.compare("s?")) { /// V? (Return command set version)
+                parser.println("STP100 V2.3");
+                parser.print("REV: ");
+                parser.println(kard_rev);
+                parser.print("Enabled: ");
+                parser.println(String((int)getEnabled(), DEC));
+                parser.print("Current Position: ");
+				parser.println(String(getCurrentPosition(), DEC));
+                parser.print("Destination Position: ");
+				parser.println(String(getDestinationPosition(), DEC));
+                parser.print("Delta Position: ");
+				parser.println(String(getDeltaPosition(), DEC));
+				parser.print("Steps per step: ");
+                parser.println(String((int)microsteps, DEC));
+			}
         }
     }
 
@@ -933,6 +961,8 @@ private:
     bool homeSensorPersistent; /// true = persistent single direction, false = one shot
     bool homeSensorPersistentDirection; /// homeSensorPersistentPolarity matches directionBit
 
+	us8 microsteps;
+	
     // sigmoid related
     Variant sigLow;
     Variant sigHigh;
