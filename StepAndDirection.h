@@ -618,7 +618,10 @@ public:
     }
 	s32 getDeltaPosition() {
 		if( config == 0 ) return 0;
-		return config->getDestinationPosition() - config->getCurrentPosition();
+			s32 temp = config->getDestinationPosition() - config->getCurrentPosition();
+			if( temp == 0 )
+				while(running);	// Wait for the interrupt to fire one last time before returning zero
+		return temp;
     }
     void setCurrentPosition(s32 position) {
 		if( config == 0 ) return;
@@ -803,6 +806,24 @@ public:
                 setEnabled(true);
                 parser.println("OK");
             }
+            else if(parser.compare("rsm")) { /// RSM (read step minimum delay) NOT IMPLIMENTED
+				parser.println("500");
+            }
+            else if(parser.compare("rsa")) { /// RSA (read step acceleration) NOT IMPLIMENTED
+				parser.println("10");
+            }
+            else if(parser.compare("rsd")) { /// RSD (read step delay) NOT IMPLIMENTED
+				parser.println("2000");
+            }
+            else if(parser.compare("sm")) { /// sm (read step minimum delay) NOT IMPLIMENTED
+                parser.println("OK");
+            }
+            else if(parser.compare("sa")) { /// SA (set step acceleration delay) NOT IMPLIMENTED
+                parser.println("OK");
+            }
+            else if(parser.compare("sd")) { /// SD (set step delay) NOT IMPLIMENTED
+                parser.println("OK");
+            }
             else if(parser.compare("rc")) { /// RC (read current position)
 				parser.println(String(getCurrentPosition(), DEC));
             }
@@ -858,7 +879,7 @@ public:
                 moveFreq(units, frequency);
                 parser.println("OK");
             }
-            else if(parser.compare("sm")) { /// SM n (Set step mode, n = microsteps (1,2,4,8,16) per step)
+            else if(parser.compare("smsps")) { /// SMSPS n (Set microsteps per step, n = microsteps (1,2,4,8,16) per step)
                 parser.nextToken();
                 Variant new_microsteps = parser.toVariant();
                 if(!setMicrostepsPerStep(new_microsteps.toInt())) parser.print("N");
@@ -969,7 +990,7 @@ private:
     Variant sigSteps;
     float sigCoefficient;
 
-    bool running;
+    volatile bool running;
     bool previousHomeState;
     Vector vector; 	///< The currently running vector in the interrupt
     us32 currentSkip;	///< The amount of time (interrupt time base counts) that needs to be skipped before the next step
