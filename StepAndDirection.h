@@ -911,6 +911,10 @@ public:
 	inline bool readHomeState() {
 		return (bool)(homeSensorPort->port.reg & homeSensorBit);
 	}
+	char * getKardRev()
+	{
+		return kard_rev;
+	}
 private:
     inline bool readHomeSensor() {
         if(homeSensorPort != 0) {
