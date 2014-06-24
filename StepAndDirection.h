@@ -933,7 +933,16 @@ private:
         }
 #ifdef fast_io
         stepPort->lat.set = stepBit;
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
+        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
 #else
         digitalWrite(pin_step, HIGH);
 #endif
