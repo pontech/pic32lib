@@ -152,7 +152,7 @@ public:
         pinMode(pin_sleep_ms1, OUTPUT);
         pinMode(pin_ms3_ms2, OUTPUT);
 		
-		setEnabled(true); // true = enabled, false = disabled
+		setEnabled(false); // true = enabled, false = disabled
 		setMicrostepsPerStep(4); // Initial step mode
 
 #ifdef fast_io
