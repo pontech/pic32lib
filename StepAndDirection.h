@@ -176,7 +176,7 @@ public:
         halt();
 
         // sigmoid defaults
-        setSigmoid(Variant(1, 3), Variant(1, 4), Variant(25, 1), 3);
+        setSigmoid(Variant(1, 3), Variant(1, 4), Variant(25, 1), 3.0);
     }
     StepAndDirection(us8 motor, us8 card, char *command_prefix = "stp?", char *kard_rev = "C") {
         *this = StepAndDirection(motor, KardIO[card][0], KardIO[card][1], KardIO[card][2], KardIO[card][3], KardIO[card][4], command_prefix, kard_rev);
@@ -497,7 +497,7 @@ public:
 #ifdef debug_stp
 	Serial.println("true");
 #endif
-            modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient, steps);
+            modifiedSigmoid(sigLow, sigHigh, sigSteps, sigCoefficient.toFloat(), steps);
         }
         else {
 #ifdef debug_stp
@@ -664,7 +664,7 @@ public:
 	}
 	
 
-    void setSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient) {
+    void setSigmoid(Variant begin, Variant end, Variant accelSteps, Variant coefficient) {
         sigLow = begin;
         sigHigh = end;
         sigSteps = accelSteps;
@@ -770,7 +770,7 @@ public:
                 sigSteps = parser.toVariant();
 
                 parser.nextToken();
-                sigCoefficient = parser.toVariant().toFloat();
+                sigCoefficient = parser.toVariant();
 			}
             else if(parser.compare("getsig")) { /// getsig (get sigmoid properties)
                 parser.print(sigLow.toString());
@@ -779,7 +779,7 @@ public:
                 parser.print(" ");
                 parser.print(sigSteps.toString());
                 parser.print(" ");
-                parser.println(parser.toVariant().toString());
+                parser.println(sigCoefficient.toString());
             }
             else if(parser.compare("units")) {
                 parser.nextToken();
@@ -798,30 +798,44 @@ public:
 			/**
  			 * Here begins a list of PONTECH STP10x compatible commands
 			 */
+            else if(parser.compare("rsm")) { /// RSM (read step minimum delay)
+				parser.println(sigLow.toString());
+            }
+            else if(parser.compare("rsd")) { /// RSD (read step delay)
+				parser.println(sigHigh.toString());
+            }
+            else if(parser.compare("rss")) { /// RSS (read step delay)
+				parser.println(sigHigh.toString());
+            }
+            else if(parser.compare("rsa")) { /// RSA (read step acceleration)
+				parser.println(sigCoefficient.toString());
+            }
+            else if(parser.compare("sm")) { /// SM Hz (set minimum step delay in 1/Hz)
+                parser.nextToken();
+                sigLow = parser.toVariant();
+                parser.println("OK");
+			}
+            else if(parser.compare("sd")) { /// SD Hz (set step delay in 1/Hz)
+                parser.nextToken();
+                sigHigh = parser.toVariant();
+                parser.println("OK");
+			}
+            else if(parser.compare("ss")) { /// SS s (set number of steps (s) to accelerate over)
+                parser.nextToken();
+                sigSteps = parser.toVariant();
+                parser.println("OK");
+			}
+            else if(parser.compare("sa")) { /// SC n (set acceleration sigmoid shape n)
+                parser.nextToken();
+                sigCoefficient = parser.toVariant();
+                parser.println("OK");
+			}
             else if(parser.compare("so")) { /// SO Stepper Off (disable driver)
                 setEnabled(false);
                 parser.println("OK");
             }
             else if(parser.compare("sp")) { /// SP Stepper Powered (enable driver)
                 setEnabled(true);
-                parser.println("OK");
-            }
-            else if(parser.compare("rsm")) { /// RSM (read step minimum delay) NOT IMPLIMENTED
-				parser.println("500");
-            }
-            else if(parser.compare("rsa")) { /// RSA (read step acceleration) NOT IMPLIMENTED
-				parser.println("10");
-            }
-            else if(parser.compare("rsd")) { /// RSD (read step delay) NOT IMPLIMENTED
-				parser.println("2000");
-            }
-            else if(parser.compare("sm")) { /// sm (read step minimum delay) NOT IMPLIMENTED
-                parser.println("OK");
-            }
-            else if(parser.compare("sa")) { /// SA (set step acceleration delay) NOT IMPLIMENTED
-                parser.println("OK");
-            }
-            else if(parser.compare("sd")) { /// SD (set step delay) NOT IMPLIMENTED
                 parser.println("OK");
             }
             else if(parser.compare("rc")) { /// RC (read current position)
@@ -1001,7 +1015,7 @@ private:
     Variant sigLow;
     Variant sigHigh;
     Variant sigSteps;
-    float sigCoefficient;
+    Variant sigCoefficient;
 
     volatile bool running;
     bool previousHomeState;
