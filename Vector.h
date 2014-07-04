@@ -11,14 +11,14 @@ public:
         steps = 0;
     }
 
-    Vector(s32 steps, Variant time)
+    Vector(s32 steps, us32 time)
     {
         Vector::steps = steps;
         Vector::time = time;
     }
 
     s32 steps;
-    Variant time;
+    us32 time;
 };
 
 #endif

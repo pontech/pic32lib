@@ -133,7 +133,7 @@ class StepAndDirection {
 //  4   | MS3     | MS2     | MS2     |
 
 public:
-    StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep_ms1, us8 pin_ms3_ms2, char *command_prefix = "stp0", char *kard_rev = "C" ) {
+    StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep_ms1, us8 pin_ms3_ms2, Variant timebase, char *command_prefix = "stp0", char *kard_rev = "C" ) {
         StepAndDirection::motor = motor;
 #ifndef fast_io
         StepAndDirection::pin_step = pin_step;
@@ -145,6 +145,7 @@ public:
 
 		StepAndDirection::kard_rev = kard_rev;
 		StepAndDirection::command_prefix = command_prefix;
+		StepAndDirection::timebase = timebase;
 		
         pinMode(pin_step, OUTPUT);
         pinMode(pin_direction, OUTPUT);
@@ -177,9 +178,10 @@ public:
 
         // sigmoid defaults
         setSigmoid(Variant(1, 3), Variant(1, 4), Variant(25, 1), 3.0);
+		overhead = Variant(20, -6);
     }
-    StepAndDirection(us8 motor, us8 card, char *command_prefix = "stp?", char *kard_rev = "C") {
-        *this = StepAndDirection(motor, KardIO[card][0], KardIO[card][1], KardIO[card][2], KardIO[card][3], KardIO[card][4], command_prefix, kard_rev);
+    StepAndDirection(us8 motor, us8 card, Variant timebase, char *command_prefix = "stp?", char *kard_rev = "C") {
+        *this = StepAndDirection(motor, KardIO[card][0], KardIO[card][1], KardIO[card][2], KardIO[card][3], KardIO[card][4], timebase, command_prefix, kard_rev);
     }
 
 	/** 
@@ -253,7 +255,7 @@ public:
 	}
 	
     // todo: verify skip starts at 1
-    inline void sharedInterrupt(Variant timebase) {
+    inline void sharedInterrupt() {
         if(vector.steps == 0 && currentSkip <= 0 && running) {
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
@@ -282,7 +284,7 @@ public:
                 currentSkip--;
             }
             else {
-                currentSkip = (vector.time / timebase).toInt();
+                currentSkip = vector.time; // (vector.time / timebase).toInt();
                 step();
             }
         }
@@ -292,7 +294,7 @@ public:
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
                 bool ok;
-                uint32_t temp = setTimeBase(vector.time, &ok);
+                uint32_t temp = vector.time; //setTimeBase(vector.time, &ok);
                 if(ok) {
                     interruptPeriod = temp;
                     if(vector.steps > 0) {
@@ -313,9 +315,9 @@ public:
                 else {
                     Serial.println("Timebase Error");
                     Serial.println(vector.steps);
-                    Serial.println(vector.time.toString());
+                    Serial.println(vector.time,DEC);
                     vector.steps = 0;
-                    vector.time = Variant();
+                    vector.time = 0; // Variant();
                     running = false;
                 }
                 return;
@@ -390,13 +392,13 @@ public:
             }
             else {
                 vectors[i].steps = ((value - prev) * accelSteps).toInt();
-                vectors[i].time = ((endPeriod * value) + (beginPeriod * (Variant(1, 0) - value)));
+                vectors[i].time = (((endPeriod * value) + (beginPeriod * (Variant(1, 0) - value))) / timebase).toInt();
             }
 
 #ifdef debug_sigmoid
             Serial.print(vectors[i].steps);
             Serial.print(", ");
-            Serial.print(vectors[i].time.toString());
+            Serial.print(vectors[i].time,DEC);
             Serial.println(" ");
 #endif
             prev = value;
@@ -413,7 +415,7 @@ public:
 #ifdef debug_sigmoid
         Serial.print(flatVector.steps);
         Serial.print(", ");
-        Serial.println(flatVector.time.toString());
+        Serial.println(flatVector.time, DEC);
 #endif
 
         buffer.push(flatVector);
@@ -425,12 +427,12 @@ public:
 #ifdef debug_sigmoid
         Serial.print("TotalSteps: ");
         Serial.println(totalSteps);
-        Serial.println(vectors[points].time.toString());
+        Serial.println(vectors[points].time,DEC);
 #endif
     }
     void start() {
         vector.steps = 0;
-        vector.time = Variant();
+        vector.time = 0; //Variant();
         running = true;
     }
     void pause() {
@@ -505,7 +507,7 @@ public:
 #endif
             Variant period(1, 0);
             period /= sigLow;
-            buffer.push(Vector(steps, period));
+            buffer.push(Vector(steps, (period/timebase).toInt()));
         }
         start();
     }
@@ -582,7 +584,6 @@ public:
 		period /= frequency;
 
 #ifdef debug_stp
-		Variant timebase(31250, -9);
 		Serial.print(", steps=");
         Serial.print(units.toString());
         Serial.print(", frequency=");
@@ -594,7 +595,7 @@ public:
         Serial.print(", skip=");
         Serial.println((period / timebase).toString());
 #endif
-		buffer.push(Vector(units.toInt(), period));
+		buffer.push(Vector(units.toInt(), (period / timebase).toInt()));
         start();
 	}
     StepConfig* getDefaultConfig() {
@@ -711,7 +712,8 @@ public:
 
                     Vector temp;
                     temp.steps = token.substring(0, index).toInt();
-                    temp.time = Variant::fromString(token.substring(++index));
+					/// temp.time needs testing here
+                    temp.time = (Variant::fromString(token.substring(++index)) / timebase).toInt();
                     buffer.push(temp);
                 }
                 parser.println("OK Pairs");
@@ -762,15 +764,13 @@ public:
             else if(parser.compare("setsig")) { /// setsig sigLow sigHigh sigSteps sigCoefficient (set sigmoid properties)
                 parser.nextToken();
                 sigLow = parser.toVariant();
-
                 parser.nextToken();
                 sigHigh = parser.toVariant();
-
                 parser.nextToken();
                 sigSteps = parser.toVariant();
-
                 parser.nextToken();
                 sigCoefficient = parser.toVariant();
+                parser.println("OK");
 			}
             else if(parser.compare("getsig")) { /// getsig (get sigmoid properties)
                 parser.print(sigLow.toString());
@@ -1016,6 +1016,8 @@ private:
     Variant sigHigh;
     Variant sigSteps;
     Variant sigCoefficient;
+	Variant overhead;
+	Variant timebase;
 
     volatile bool running;
     bool previousHomeState;
