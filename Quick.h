@@ -59,11 +59,11 @@ us8 led2 = 81;
 #define c5p5 85
 
 // Kard Com
-#define c6p0 44
-#define c6p1 44
-#define c6p2 44
-#define c6p3 44
-#define c6p4 44
+#define c6p0 71
+#define c6p1 71
+#define c6p2 71
+#define c6p3 71
+#define c6p4 71
 #define c6p5 44
 
 us8 KardIO[7][6] = {
@@ -73,7 +73,7 @@ us8 KardIO[7][6] = {
     { 22, 76,  9,  2, 35, 52 }, // Kard 3
     { 23, 39,  8, 21, 34, 50 }, // Kard 4
     { 78, 79, 10, 20, 33, 85 }, // Kard 5
-    { 44, 44, 44, 44, 44, 44 }  // Kard Com
+    { 71, 71, 71, 71, 71, 44 }  // Kard Com
 };
 
 class Quick {

@@ -352,22 +352,25 @@ public:
     // stp0 test 5e3 30e3 300 3 3200
     // stp0 test 20e3 40e3 1000 4 32000 // 10 rps w/16x
     // stp0 test 18e3 28e3 1000 3.5 32000 // 17.5 rps w/8x
-    void modifiedSigmoid(Variant begin, Variant end, Variant accelSteps, float coefficient, s32 steps) {
+    void modifiedSigmoid(Variant beginFreq, Variant endFreq, Variant accelSteps, float coefficient, s32 steps) {
         int points = 10;
 
         Variant beginPeriod(1, 0);
-        beginPeriod /= begin;
+        beginPeriod /= beginFreq;
 
         Variant endPeriod(1, 0);
-        endPeriod /= end;
+        endPeriod /= endFreq;
 
         if(steps < 0) {
             accelSteps *= Variant(-1, 0);
         }
 
 #ifdef debug_sigmoid
-        Serial.println("Begin: " + beginPeriod.toString() + " sec");
-        Serial.println("End  : " + endPeriod.toString() + " sec");
+        Serial.println("beginPeriod: " + beginPeriod.toString() + " sec");
+        Serial.println("endPeriod  : " + endPeriod.toString() + " sec");
+        Serial.println("accelSteps : " + accelSteps.toString() + "");
+        Serial.println("coefficient: " + Variant(coefficient).toString() + "");
+        Serial.println("steps      : " + String(steps, DEC) + " steps");
 #endif
 
         // =(1 / (1 + (coefficient ^ (-point + 5))))
@@ -389,10 +392,12 @@ public:
 #endif
             if(i == 0) {
                 vectors[i].steps = 0;
+                vectors[i].time = 0;
             }
             else {
                 vectors[i].steps = ((value - prev) * accelSteps).toInt();
-                vectors[i].time = (((endPeriod * value) + (beginPeriod * (Variant(1, 0) - value))) / timebase).toInt();
+                //vectors[i].time = (((endPeriod * value) + (beginPeriod * (Variant(1, 0) - value))) / timebase).toInt();
+				vectors[i].time = ((Variant(1,0) / ((endFreq-beginFreq)*value + beginFreq))/ timebase).toInt();
             }
 
 #ifdef debug_sigmoid
@@ -410,7 +415,7 @@ public:
             buffer.push(vectors[i]);
         }
 
-        Vector flatVector(steps - (totalSteps * 2), vectors[10].time); //endPeriod);
+        Vector flatVector(steps - (totalSteps * 2), (endPeriod/timebase).toInt()); // vectors[10].time); //endPeriod);
 
 #ifdef debug_sigmoid
         Serial.print(flatVector.steps);
@@ -805,7 +810,7 @@ public:
 				parser.println(sigHigh.toString());
             }
             else if(parser.compare("rss")) { /// RSS (read step delay)
-				parser.println(sigHigh.toString());
+				parser.println(sigSteps.toString());
             }
             else if(parser.compare("rsa")) { /// RSA (read step acceleration)
 				parser.println(sigCoefficient.toString());
