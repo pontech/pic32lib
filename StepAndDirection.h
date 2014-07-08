@@ -256,6 +256,18 @@ public:
 	
     // todo: verify skip starts at 1
     inline void sharedInterrupt() {
+#ifdef fast_io
+		if ( stepPort->port.reg & stepBit ) {
+			stepPort->lat.clr = stepBit;
+			//return;
+		}
+#else
+		if( digitalRead(pin_step, HIGH) {
+			digitalWrite(pin_step, LOW);
+			//return;
+		}
+#endif
+
         if(vector.steps == 0 && currentSkip <= 0 && running) {
             if(!buffer.isEmpty()) {
                 vector = buffer.pop();
@@ -930,8 +942,7 @@ public:
 	inline bool readHomeState() {
 		return (bool)(homeSensorPort->port.reg & homeSensorBit);
 	}
-	char * getKardRev()
-	{
+	char * getKardRev() {
 		return kard_rev;
 	}
 private:
@@ -956,16 +967,6 @@ private:
         }
 #ifdef fast_io
         stepPort->lat.set = stepBit;
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
-        asm("nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n");
 #else
         digitalWrite(pin_step, HIGH);
 #endif
@@ -978,11 +979,6 @@ private:
             config->currentPosition--;
             vector.steps++;
         }
-#ifdef fast_io
-        stepPort->lat.clr = stepBit;
-#else
-        digitalWrite(pin_step, LOW);
-#endif
     }
 
     us8 motor;
