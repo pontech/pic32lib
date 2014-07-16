@@ -135,10 +135,9 @@ class StepAndDirection {
 public:
     StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep_ms1, us8 pin_ms3_ms2, Variant timebase, char *command_prefix = "stp0", char *kard_rev = "C" ) {
         StepAndDirection::motor = motor;
-#ifndef fast_io
+
         StepAndDirection::pin_step = pin_step;
         StepAndDirection::pin_direction = pin_direction;
-#endif
         StepAndDirection::pin_enable = pin_enable;
         StepAndDirection::pin_sleep_ms1 = pin_sleep_ms1;
         StepAndDirection::pin_ms3_ms2 = pin_ms3_ms2;
@@ -982,6 +981,8 @@ private:
     }
 
     us8 motor;
+    us8 pin_step;
+    us8 pin_direction;
     us8 pin_enable;
     us8 pin_sleep_ms1;
 	us8 pin_ms3_ms2;
@@ -1003,9 +1004,6 @@ private:
     p32_ioport *homeSensorPort;
     unsigned int homeSensorBit;
     bool homeSensorPolarity;
-#else
-    us8 pin_step;
-    us8 pin_direction;
 #endif
     bool homeSensorPersistent; /// true = persistent single direction, false = one shot
     bool homeSensorPersistentDirection; /// homeSensorPersistentPolarity matches directionBit
