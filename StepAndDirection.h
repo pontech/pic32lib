@@ -490,7 +490,7 @@ public:
         //        Serial.println((us32)homeSensorPort, DEC);
         //        Serial.println((us32)homeSensorBit , DEC);
     }
-    void chooseBestMove(s32 steps) {
+    void chooseBestMove/*_sigmoid*/(s32 steps) {
 #ifdef debug_stp
 	Serial.print("chooseBestMove ");
 	Serial.print(String(steps,DEC));
@@ -519,6 +519,121 @@ public:
         }
         else {
 #ifdef debug_stp
+	Serial.println("false");
+#endif
+            Variant period(1, 0);
+            period /= sigLow;
+            buffer.push(Vector(steps, (period/timebase).toInt()));
+        }
+        start();
+    }
+    void chooseBestMove_newton(s32 steps) {
+#ifdef debug_stp_newton
+	Serial.print("chooseBestMove ");
+	Serial.print(String(steps,DEC));
+#endif
+
+        if(steps == 0) {
+#ifdef debug_stp_newton
+			Serial.println(" steps");
+#endif
+            return;
+        }
+
+		config->updateDestinationPosition(steps);
+#ifdef debug_stp_newton
+	Serial.print(" -> ");
+	Serial.print(fabs((double)steps), DEC);
+	Serial.print(" >= ");
+	Serial.print((sigSteps.toInt() * 2.5), DEC);
+	Serial.print(" is ");	
+#endif
+        if(fabs((double)steps) >= 13750 * 2 ) {
+#ifdef debug_stp_newton
+	Serial.println("true");
+#endif
+			s32 sign;
+			if( steps >= 0 ) sign = 1;
+			else sign = -1;
+			
+			buffer.push(Vector(sign * 7,40));
+			buffer.push(Vector(sign * 8,39));
+			buffer.push(Vector(sign * 8,38));
+			buffer.push(Vector(sign * 9,37));
+			buffer.push(Vector(sign * 10,36));
+			buffer.push(Vector(sign * 11,35));
+			buffer.push(Vector(sign * 12,34));
+			buffer.push(Vector(sign * 13,33));
+			buffer.push(Vector(sign * 14,32));
+			buffer.push(Vector(sign * 16,31));
+			buffer.push(Vector(sign * 17,30));
+			buffer.push(Vector(sign * 19,29));
+			buffer.push(Vector(sign * 21,28));
+			buffer.push(Vector(sign * 24,27));
+			buffer.push(Vector(sign * 27,26));
+			buffer.push(Vector(sign * 30,25));
+			buffer.push(Vector(sign * 34,24));
+			buffer.push(Vector(sign * 39,23));
+			buffer.push(Vector(sign * 45,22));
+			buffer.push(Vector(sign * 52,21));
+			buffer.push(Vector(sign * 60,20));
+			buffer.push(Vector(sign * 70,19));
+			buffer.push(Vector(sign * 83,18));
+			buffer.push(Vector(sign * 99,17));
+			buffer.push(Vector(sign * 120,16));
+			buffer.push(Vector(sign * 146,15));
+			buffer.push(Vector(sign * 181,14));
+			buffer.push(Vector(sign * 228,13));
+			buffer.push(Vector(sign * 293,12));
+			buffer.push(Vector(sign * 386,11));
+			buffer.push(Vector(sign * 521,10));
+			buffer.push(Vector(sign * 729,9));
+			buffer.push(Vector(sign * 1063,8));
+			buffer.push(Vector(sign * 1638,7));
+			buffer.push(Vector(sign * 2716,6));
+			buffer.push(Vector(sign * 5000,5));
+
+			buffer.push(Vector(sign * ((sign * steps) - (13749 * 2)),5));
+
+			buffer.push(Vector(sign * 5000,5));
+			buffer.push(Vector(sign * 2716,6));
+			buffer.push(Vector(sign * 1638,7));
+			buffer.push(Vector(sign * 1063,8));
+			buffer.push(Vector(sign * 729,9));
+			buffer.push(Vector(sign * 521,10));
+			buffer.push(Vector(sign * 386,11));
+			buffer.push(Vector(sign * 293,12));
+			buffer.push(Vector(sign * 228,13));
+			buffer.push(Vector(sign * 181,14));
+			buffer.push(Vector(sign * 146,15));
+			buffer.push(Vector(sign * 120,16));
+			buffer.push(Vector(sign * 99,17));
+			buffer.push(Vector(sign * 83,18));
+			buffer.push(Vector(sign * 70,19));
+			buffer.push(Vector(sign * 60,20));
+			buffer.push(Vector(sign * 52,21));
+			buffer.push(Vector(sign * 45,22));
+			buffer.push(Vector(sign * 39,23));
+			buffer.push(Vector(sign * 34,24));
+			buffer.push(Vector(sign * 30,25));
+			buffer.push(Vector(sign * 27,26));
+			buffer.push(Vector(sign * 24,27));
+			buffer.push(Vector(sign * 21,28));
+			buffer.push(Vector(sign * 19,29));
+			buffer.push(Vector(sign * 17,30));
+			buffer.push(Vector(sign * 16,31));
+			buffer.push(Vector(sign * 14,32));
+			buffer.push(Vector(sign * 13,33));
+			buffer.push(Vector(sign * 12,34));
+			buffer.push(Vector(sign * 11,35));
+			buffer.push(Vector(sign * 10,36));
+			buffer.push(Vector(sign * 9,37));
+			buffer.push(Vector(sign * 8,38));
+			buffer.push(Vector(sign * 8,39));
+			buffer.push(Vector(sign * 7,40));
+        }
+        else {
+#ifdef debug_stp_newton
 	Serial.println("false");
 #endif
             Variant period(1, 0);
