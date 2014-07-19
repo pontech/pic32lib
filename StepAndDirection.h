@@ -162,6 +162,9 @@ public:
         directionPort = (p32_ioport *)portRegisters(digitalPinToPort(pin_direction));
         directionBit = digitalPinToBitMask(pin_direction);
 
+        enablePort = (p32_ioport *)portRegisters(digitalPinToPort(pin_enable));
+        enableBit = digitalPinToBitMask(pin_enable);
+
         homeSensorPort = 0;
         homeSensorPolarity = false;
 		homeSensorPersistent = false;
@@ -255,50 +258,55 @@ public:
 	
     // todo: verify skip starts at 1
     inline void sharedInterrupt() {
-#ifdef fast_io
-		if ( stepPort->port.reg & stepBit ) {
-			stepPort->lat.clr = stepBit;
-			//return;
-		}
-#else
-		if( digitalRead(pin_step, HIGH) {
-			digitalWrite(pin_step, LOW);
-			//return;
-		}
-#endif
+		//enablePort->lat.set = enableBit;
 
-        if(vector.steps == 0 && currentSkip <= 0 && running) {
-            if(!buffer.isEmpty()) {
-                vector = buffer.pop();
-                if(vector.steps > 0) {
+		if(running)
+		{
 #ifdef fast_io
-                    directionPort->lat.set = directionBit;
+			if ( stepPort->port.reg & stepBit ) {
+				stepPort->lat.clr = stepBit;
+			}
 #else
-                    digitalWrite(pin_direction, HIGH);
+			if( digitalRead(pin_step, HIGH) {
+				digitalWrite(pin_step, LOW);
+			}
 #endif
-                }
-                else {
+			// This if statement check to see if we are finished processing
+			// the current vector, if we are then it pop's another from the
+			// buffer and sets the direction bit.
+			if(vector.steps == 0) {
+				if(!buffer.isEmpty()) {
+					vector = buffer.pop();
+					currentSkip = vector.time;
+					if(vector.steps > 0) {
 #ifdef fast_io
-                    directionPort->lat.clr = directionBit;
+						directionPort->lat.set = directionBit;
 #else
-                    digitalWrite(pin_direction, LOW);
+						digitalWrite(pin_direction, HIGH);
 #endif
-                }
-            }
-            else {
-                running = false;
-            }
-        }
-
-        if(vector.steps != 0 || currentSkip > 0) {
-            if(currentSkip > 0) {
-                currentSkip--;
-            }
-            else {
-                currentSkip = vector.time; // (vector.time / timebase).toInt();
-                step();
-            }
-        }
+					}
+					else {
+#ifdef fast_io
+						directionPort->lat.clr = directionBit;
+#else
+						digitalWrite(pin_direction, LOW);
+#endif
+					}
+				}
+				else {
+					running = false;
+				}
+			}
+			
+			if(vector.steps != 0) {
+				currentSkip--;
+				if(currentSkip == 0) {
+					step();
+					currentSkip = vector.time;
+				}
+			}
+		}
+		//enablePort->lat.clr = enableBit;
     }
     void unsharedInterrupt() {
         if(vector.steps == 0 && running) {
@@ -449,6 +457,7 @@ public:
     void start() {
         vector.steps = 0;
         vector.time = 0; //Variant();
+		currentSkip = 0;
         running = true;
     }
     void pause() {
@@ -1114,6 +1123,10 @@ private:
     // direction pin
     p32_ioport *directionPort;
     unsigned int directionBit;
+
+    // enable pin
+    p32_ioport *enablePort;
+    unsigned int enableBit;
 
     // home sensor pin
     p32_ioport *homeSensorPort;
