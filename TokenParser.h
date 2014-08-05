@@ -47,6 +47,10 @@ public:
         }
         return stopCharactorFound;
     }
+    ///function to flush unwanted characters from the buffer
+    void emptyBuffer() {
+        length = 0;
+    }
 	// Get the length of the entire string in the buffer
     us8 getLength() {
         return length;
