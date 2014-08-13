@@ -5,7 +5,7 @@
 #include <Stream.h>
 #include "Vector.h"
 //#include "Arduino.h"
-#define CircleBufferSize 75
+#define CircleBufferSize 33
 class CircleBuffer {
 public:
     CircleBuffer() //int bufferSize = 32)
