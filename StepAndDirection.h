@@ -229,7 +229,7 @@ public:
 					break;
 			}
 		}
-		else if( strcmp(kard_rev, "D") == 0) {
+		else if( kard_rev[0] >= 'D' && kard_rev[0] <= 'F' ) {
 			switch(microsteps) {
 				case 1:
 					digitalWrite(pin_sleep_ms1, LOW);
@@ -799,7 +799,7 @@ public:
 			digitalWrite(pin_enable, !enabled); // 0 = enabled
 			digitalWrite(pin_sleep_ms1, enabled);  // 1 = enabled
 		}
-		else if( strcmp(kard_rev, "D") == 0) {
+		else if( kard_rev[0] >= 'D' && kard_rev[0] <= 'F' ) {
 			digitalWrite(pin_enable, !enabled); // 0 = enabled
 		}
 	}
