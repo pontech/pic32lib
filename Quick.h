@@ -7,8 +7,8 @@
 #include "TokenParser.h"
 
 #warning "COMPILING FOR REV A"
-us8 led1 = 37;
-us8 led2 = 81;
+#define led1  37
+#define led2  81
 
 // Kard 0
 #define c0p0 68
@@ -58,7 +58,7 @@ us8 led2 = 81;
 #define c5p4 33
 #define c5p5 85
 
-// Kard Com
+// Kard Com (Turnaround definitions missing, look for them on another branch)
 #define c6p0 71
 #define c6p1 71
 #define c6p2 71
@@ -66,15 +66,7 @@ us8 led2 = 81;
 #define c6p4 71
 #define c6p5 44
 
-us8 KardIO[7][6] = {
-    { 68, 58, 62, 55, 82, 32 }, // Kard 0
-    { 57, 56, 63, 54, 83, 31 }, // Kard 1
-    { 86, 64,  5, 70, 84, 30 }, // Kard 2
-    { 22, 76,  9,  2, 35, 52 }, // Kard 3
-    { 23, 39,  8, 21, 34, 50 }, // Kard 4
-    { 78, 79, 10, 20, 33, 85 }, // Kard 5
-    { 71, 71, 71, 71, 71, 44 }  // Kard Com
-};
+extern us8 KardIO[7][6]; // Moved definition to KardIO.h, include this file before Quick.h in your sketch
 
 class Quick {
 public:
