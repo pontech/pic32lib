@@ -18,6 +18,7 @@ public:
     {
         myStream = stream;
         buffer = (us8*)malloc(bufferSize + 1);
+        _bufferSize = bufferSize;
         reset();
         save();
         length = 0;
@@ -34,7 +35,9 @@ public:
 
         if(myStream->available() > 0) {
             us8 data = myStream->read();
-            buffer[length++] = data;
+            if( length < _bufferSize ) {
+                buffer[length++] = data;
+            }
 
             if(data == stopCharactor) {
                 stopCharactorFound = true;
@@ -290,6 +293,7 @@ private:
 
     Stream* myStream;
     us8* buffer;
+    us16 _bufferSize;
     us8 length;
     us8 head;
     us8 tail;
