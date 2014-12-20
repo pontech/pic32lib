@@ -530,9 +530,48 @@ public:
 #ifdef debug_stp
 	Serial.println("false");
 #endif
-            Variant period(1, 0);
-            period /= sigLow;
-            buffer.push(Vector(steps, (period/timebase).toInt()));
+            us32 maxtime = 1/sigLow.toInt()/timebase.toInt();
+            s32 sign;
+            if( steps >= 0 ) sign = 1;
+            else sign = -1;
+            us32 absSteps = abs(steps);
+            us32 stepsUsed = 0;
+            double accel = (2*sigSteps.toDouble())/(sigSteps.toDouble()*timebase.toDouble()*sigSteps.toDouble()*timebase.toDouble());
+            double timeTotal = sigSteps.toDouble()*timebase.toDouble(); //seconds
+            double timeChunk = timeTotal/20;
+            us8 usedtimeChunk = 0;
+            s32 stepshold[20]; 
+            s32 velhold[20]; 
+            for(usedtimeChunk = 0; usedtimeChunk<20 ; usedtimeChunk++)
+            {
+              double incSteps = accel/2*(timeChunk*usedtimeChunk)*(timeChunk*usedtimeChunk)-stepsUsed;
+              if(stepsUsed + (s32)incSteps>absSteps)//break before position is half total move
+              {
+                break;
+              }
+              us32 vel  = (us32)(timeChunk/incSteps/timebase.toDouble());
+              stepshold[usedtimeChunk] = sign * (s32)incSteps;
+              velhold[usedtimeChunk] = vel;
+              Serial.print(sign * (s32)incSteps,DEC);
+              Serial.print(", ");
+              Serial.println(vel,DEC);
+              buffer.push(Vector(sign * (s32)incSteps, vel));
+              stepsUsed += (s32)incSteps;
+            }
+              Serial.print(sign * absSteps-2*stepsUsed,DEC);
+              Serial.print(", ");
+              Serial.println(velhold[usedtimeChunk-1],DEC);
+            buffer.push(Vector(sign * (s32)absSteps-2*stepsUsed, velhold[usedtimeChunk-1]));
+            for(;usedtimeChunk>0 ; usedtimeChunk--)
+            {
+              Serial.print(stepshold[usedtimeChunk-1],DEC);
+              Serial.print(", ");
+              Serial.println(velhold[usedtimeChunk-1],DEC);
+              buffer.push(Vector(stepshold[usedtimeChunk-1], velhold[usedtimeChunk-1]));
+            }
+            //Variant period(1, 0);
+            //period /= sigLow;
+            //buffer.push(Vector(steps, (period/timebase).toInt()));
         }
         start();
     }
