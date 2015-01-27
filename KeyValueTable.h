@@ -5,6 +5,7 @@
 #include "TokenParser.h"
 #include "StringList.h"
 
+#define tableSize_default 25
 #define keySize 20
 #define valueSize 40
 
@@ -17,7 +18,7 @@ class KeyValueTable {
     } KeyValueTableDetail;
 
 public:
-    KeyValueTable(us8 size = 10)
+    KeyValueTable(us8 size = tableSize_default)
     {
         //kvTable = (KeyValueTableDetail*)malloc(size * sizeof(KeyValueTableDetail));
         tableSize = size;
@@ -167,7 +168,7 @@ public:
 
 private:
     us8 tableSize;
-    KeyValueTableDetail kvTable[24];
+    KeyValueTableDetail kvTable[tableSize_default];
 
     bool compare(String string, char* buffer, us8 maxLength)
     {

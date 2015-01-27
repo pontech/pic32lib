@@ -31,7 +31,7 @@ public:
         us8 changed;
     } PropertiesTableDetail;
 
-    Properties(us8 size = 10)
+    Properties(us8 size = tableSize_default)
         : KeyValueTable(size)
     {
         //propertiesTable = (PropertiesTableDetail*)malloc(size * sizeof(PropertiesTableDetail));
@@ -323,7 +323,7 @@ public:
     }
 
 private:
-    PropertiesTableDetail propertiesTable[24];
+    PropertiesTableDetail propertiesTable[tableSize_default];
     fptr_string echoFunction;
     s8 batchMode;
     bool executingAction;
