@@ -134,10 +134,12 @@ class StepAndDirection {
 
 public:
     StepAndDirection(us8 motor, us8 pin_step, us8 pin_direction, us8 pin_enable, us8 pin_sleep_ms1, us8 pin_ms3_ms2, Variant timebase, char *command_prefix = "stp0", char *kard_rev = "C" ) {
+        // Copy passed parameters to object
         StepAndDirection::motor = motor;
 #ifndef fast_io
         StepAndDirection::pin_step = pin_step;
         StepAndDirection::pin_direction = pin_direction;
+        //StepAndDirection::pin_home = pin_home;
 #endif
         StepAndDirection::pin_enable = pin_enable;
         StepAndDirection::pin_sleep_ms1 = pin_sleep_ms1;
@@ -146,23 +148,27 @@ public:
 		StepAndDirection::kard_rev = kard_rev;
 		StepAndDirection::command_prefix = command_prefix;
 		StepAndDirection::timebase = timebase;
-		
+				
+        // Configure IO
         pinMode(pin_step, OUTPUT);
         pinMode(pin_direction, OUTPUT);
         pinMode(pin_enable, OUTPUT);
         pinMode(pin_sleep_ms1, OUTPUT);
         pinMode(pin_ms3_ms2, OUTPUT);
-		
+        //pinMode(pin_home, INPUT);
+
 		setEnabled(false); // true = enabled, false = disabled
 		setMicrostepsPerStep(4); // Initial step mode
 
 #ifdef fast_io
+        // Only use fast_io on pins that need to be fast
         stepPort = (p32_ioport *)portRegisters(digitalPinToPort(pin_step));
         stepBit = digitalPinToBitMask(pin_step);
 
         directionPort = (p32_ioport *)portRegisters(digitalPinToPort(pin_direction));
         directionBit = digitalPinToBitMask(pin_direction);
 
+        // Default home settings
         homeSensorPort = 0;
         homeSensorPolarity = false;
 		homeSensorPersistent = false;
@@ -485,12 +491,16 @@ public:
         else {
             homeSensorPort = (p32_ioport *)portRegisters(digitalPinToPort(pin));
             homeSensorBit = digitalPinToBitMask(pin);
+            //homeSensorPort->tris.set = homeSensorBit; // Set to input
             previousHomeState = (bool)(homeSensorPort->port.reg & homeSensorBit);
         }
         homeSensorPolarity = desiredState;
         //        Serial.println((us32)homeSensorPort, DEC);
         //        Serial.println((us32)homeSensorBit , DEC);
     }
+    inline bool readHomeState() {
+		return (bool)(homeSensorPort->port.reg & homeSensorBit);
+	}
     void chooseBestMove(s32 steps) {
 #ifdef debug_stp
 	Serial.print("chooseBestMove ");
@@ -939,9 +949,6 @@ public:
 
     uint32_t interruptPeriod;
 
-	inline bool readHomeState() {
-		return (bool)(homeSensorPort->port.reg & homeSensorBit);
-	}
 	char * getKardRev() {
 		return kard_rev;
 	}
@@ -1006,7 +1013,9 @@ private:
 #else
     us8 pin_step;
     us8 pin_direction;
+    us8 pin_home;
 #endif
+
     bool homeSensorPersistent; /// true = persistent single direction, false = one shot
     bool homeSensorPersistentDirection; /// homeSensorPersistentPolarity matches directionBit
 
