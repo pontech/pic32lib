@@ -250,6 +250,17 @@ public:
             parser.nextToken();
             update(index, parser.toString());
         }
+        else if(parser.compare("keyscount")) {
+            us8 length;
+            for(length = 0; length < tableSize; length++) {
+                if(kvTable[length].key[0] == 0) {
+                    break;
+                }
+            }
+            char outbuffer[3];
+            sprintf(outbuffer,"%d",length);
+            parser.println(outbuffer);
+        }
         else if(parser.compare("keys")) {
             us8 count = 0;
             parser.print("[");
@@ -267,57 +278,70 @@ public:
             parser.println("]");
         }
         else if(parser.compare("properties")) {
-            us8 length;
-            for(length = 0; length < tableSize; length++) {
-                if(kvTable[length].key[0] == 0) {
-                    break;
+            if(!parser.nextToken())
+            {
+                us8 length;
+                for(length = 0; length < tableSize; length++) {
+                    if(kvTable[length].key[0] == 0) {
+                        break;
+                    }
+                }
+
+                parser.print("{\n");
+                for(us8 i = 0; i < length; i++) {
+                    PrintPropertyByNumber(i, length, parser); //print by number
+                }
+                parser.println("}");
+            } else {
+                s8 location = parser.toVariant().toInt();
+                if(kvTable[location].key[0] != 0) {
+                    parser.print("{\n");
+                        PrintPropertyByNumber(location, 1, parser); //print by number
+                    parser.println("}");
                 }
             }
-
-            parser.print("{\n");
-            for(us8 i = 0; i < length; i++) {
-                StringList list;
-                list << key(i);
-
-                String mode = String((propertiesTable[i].mode == RW) ? "rw" : "r");
-                if(propertiesTable[i].action != 0) {
-                    mode += "x";
-                }
-                list << mode;
-
-                switch(propertiesTable[i].type) {
-                case NullProperty:
-                    list << "null";
-                    list << "null";
-                    break;
-                case BoolProperty:
-                    list << "bool";
-                    list << String((value(i) == "true") ? "true" : "false");
-                    break;
-                case NumberProperty:
-                    list << "number";
-                    list << value(i);
-                    break;
-                case StringProperty:
-                    list << "string";
-                    list << String("\"" + value(i) + "\"");
-                    break;
-                case JsonProperty:
-                    list << "json";
-                    list << value(i);
-                }
-
-                parser.print(list.augment("\t\"%1\": [\"%3\", \"%2\", %4]"));
-                if(i < (length - 1)) {
-                    parser.print(",");
-                }
-                parser.print("\n");
-            }
-            parser.println("}");
         }
     }
 
 private:
+    void PrintPropertyByNumber(s8 i, us8 length, TokenParser &parser) {
+        StringList list;
+        list << key(i);
+
+        String mode = String((propertiesTable[i].mode == RW) ? "rw" : "r");
+        if(propertiesTable[i].action != 0) {
+            mode += "x";
+        }
+        list << mode;
+
+        switch(propertiesTable[i].type) {
+        case NullProperty:
+            list << "null";
+            list << "null";
+            break;
+        case BoolProperty:
+            list << "bool";
+            list << String((value(i) == "true") ? "true" : "false");
+            break;
+        case NumberProperty:
+            list << "number";
+            list << value(i);
+            break;
+        case StringProperty:
+            list << "string";
+            list << String("\"" + value(i) + "\"");
+            break;
+        case JsonProperty:
+            list << "json";
+            list << value(i);
+        }
+
+        parser.print(list.augment("\t\"%1\": [\"%3\", \"%2\", %4]"));
+        if(i < (length - 1)) {
+            parser.print(",");
+        }
+        parser.print("\n");
+    }
     PropertiesTableDetail propertiesTable[24];
     fptr_string echoFunction;
     s8 batchMode;

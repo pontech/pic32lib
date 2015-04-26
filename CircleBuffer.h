@@ -5,12 +5,12 @@
 #include <Stream.h>
 #include "Vector.h"
 //#include "Arduino.h"
-
+#define CircleBufferSize 33
 class CircleBuffer {
 public:
     CircleBuffer() //int bufferSize = 32)
     {
-        size = 33; //bufferSize+1;
+        size = CircleBufferSize; //bufferSize+1;
         clear();
         //contents = (Vector *) malloc (sizeof (Vector) * size);
     }
@@ -95,7 +95,7 @@ private:
     int current;
     int head;
     int tail;
-    Vector contents[33];
+    Vector contents[CircleBufferSize];
 };
 
 #endif // CIRCLEBUFFER_H
