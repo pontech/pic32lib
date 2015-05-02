@@ -47,6 +47,36 @@ public:
         }
         return stopCharactorFound;
     }
+	/// Inject characters into the parser from a string
+    // This code is not yet working
+    bool inject(String s, us8 stopCharactor = '\r') {
+        us16 i = 0;
+
+        if(stopCharactorFound) {
+            stopCharactorFound = false;
+            length = 0;
+        }
+        
+        while(i < s.length())
+        {
+            us8 data = s.charAt(i);
+
+            if(data != '\\') {
+                buffer[length++] = data;
+            }
+
+            if(data == stopCharactor) {
+                stopCharactorFound = true;
+                buffer[length - 1] = ' ';
+                reset();
+                save();
+                nextToken();
+                return stopCharactorFound;
+            }
+            i++;
+        }
+        return stopCharactorFound;
+    }
     ///function to flush unwanted characters from the buffer
     void emptyBuffer() {
         length = 0;

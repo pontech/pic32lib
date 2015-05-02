@@ -117,18 +117,18 @@ public:
 
     CronErrorCode searchByFunction(fptr fpointer, CronId *id)
     {
-        us8 x = 0;
+        us8 tasksFound = 0;
         us8 i;
         for(i = 0; i < cronSlots; i++) {
             if(slot[i].function == fpointer) {
                 if(id != 0) {
                     *id = i;
                 }
-                x++;
+                tasksFound++;
             }
         }
 
-        if(x == 0) {
+        if(tasksFound == 0) {
             return NotFound;
         }
         return Ok;
