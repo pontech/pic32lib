@@ -243,6 +243,10 @@ public:
 
             /* perform a system unlock sequence */
 
+#ifdef VIRTUAL_PROGRAM_BUTTON_TRIS
+  VIRTUAL_PROGRAM_BUTTON_TRIS = 0; //Set virtual button as output
+  VIRTUAL_PROGRAM_BUTTON = 1; //push virtual button
+#endif
             // starting critical sequence
             SYSKEY = 0x00000000;  //write invalid key to force lock
             SYSKEY = 0xAA996655;  //write key1 to SYSKEY
