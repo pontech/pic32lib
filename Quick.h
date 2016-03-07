@@ -225,7 +225,7 @@ public:
                 Serial.println(" seconds...");
                 delay(1000);
             }
-
+            executeSoftReset(ENTER_BOOTLOADER_ON_BOOT);
             // Example 7-1 from Section 7 of PIC32 Family Manual
 
             /* The following code illustrates a software Reset */
@@ -236,15 +236,15 @@ public:
             /* perform a system unlock sequence */
 
             // starting critical sequence
-            SYSKEY = 0x00000000;  //write invalid key to force lock
-            SYSKEY = 0xAA996655;  //write key1 to SYSKEY
-            SYSKEY = 0x556699AA;  //write key2 to SYSKEY
+            //SYSKEY = 0x00000000;  //write invalid key to force lock
+            //SYSKEY = 0xAA996655;  //write key1 to SYSKEY
+            //SYSKEY = 0x556699AA;  //write key2 to SYSKEY
             // OSCCON is now unlocked
             /* set SWRST bit to arm reset */
-            RSWRSTSET = 1;
+            //RSWRSTSET = 1;
             /* read RSWRST register to trigger reset */
-            unsigned int dummy;
-            dummy = RSWRST;
+            //unsigned int dummy;
+            //dummy = RSWRST;
             /* prevent any unwanted code execution until reset occurs*/
             while(1);
         }
